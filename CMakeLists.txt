@@ -34,7 +34,7 @@ set (MKL_INCLUDE_DIRS ${MKL_PREFIX}/include)
 include_directories(${MKL_INCLUDE_DIRS} )
 message( "MKL_INCLUDE_DIRS: " ${MKL_INCLUDE_DIRS} )
 set (MKL_LD ${MKL_PREFIX}/lib/intel64)
-set (MKL_LINK  "-L${MKL_LD} -mkl" ) #-lnuma
+set (MKL_LINK  "-L${MKL_LD} -lmkl_rt  -lpthread -lm" ) #-lnuma
 message( "MKL_LINK: " ${MKL_LINK} )
 
 #Intel Parallel Studio libs and includes
@@ -58,4 +58,4 @@ add_executable (Zawardo ${SOURCE_FILES})
 
 set (LINK_LIB "${INTEL_LINK} ${MAGMA_LINK} ${MKL_LINK} ${CUDA_LINK} -lrt -ldl")
 message( "LINK_LIB: " ${LINK_LIB} )
-target_link_libraries(Hybrid_BLASter ${LINK_LIB})
+target_link_libraries(Zawardo ${LINK_LIB})
