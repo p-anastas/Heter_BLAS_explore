@@ -10,11 +10,11 @@
 
 #include <cuda.h>
 
-typedef struct gpu_timer{
-	cudaEvent_t start;
-  	cudaEvent_t stop;
-	float ms = 0;
-}* gpu_timer_p;
+typedef struct gpu_timer {
+  cudaEvent_t start;
+  cudaEvent_t stop;
+  float ms = 0;
+} * gpu_timer_p;
 
 gpu_timer_p gpu_timer_init();
 void gpu_timer_start(gpu_timer_p timer);
@@ -31,13 +31,15 @@ void print_devices();
 void cudaCheckErrors();
 
 /// Allocate 'count' bytes of CUDA device memory (+errorcheck)
-void *gpu_alloc(size_t count);
+void* gpu_alloc(size_t count);
 
 /// Free the CUDA device  memory pointed by 'gpuptr' (+errorcheck)
-void gpu_free(void *gpuptr);
+void gpu_free(void* gpuptr);
 
 /// Print Free/Total CUDA device memory along with 'message' (+errorcheck)
-void gpu_showMem(char *message);
+void gpu_showMem(char* message);
 
+float* Svec_init_pinned(size_t size, float val);
+float* Svec_transfer_gpu(float* host_vec, size_t size);
 
 #endif

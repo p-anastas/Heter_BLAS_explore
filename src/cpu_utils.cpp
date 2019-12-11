@@ -6,14 +6,14 @@
 
 #include "cpu_utils.hpp"
 
+#include <float.h>
 #include <stdlib.h>
 #include <time.h>
-#include <float.h>
-#include <algorithm> 
+#include <algorithm>
 
 void debug(char* string) {
 #ifdef DEBUG
- printf("DEBUG: %s\n", string); 
+  printf("DEBUG: %s\n", string);
 #endif
 }
 
@@ -62,57 +62,71 @@ void report_bandwidth(double timer, size_t bytes) {
   printf("%lf ms ( %.2lf Gbytes/s)", 1000.0 * time, Gbytes);
 }
 
-
-double Drandom(double min, double max){
-return (max - min) * ( (double)rand() / (double)RAND_MAX ) + min;
+double Drandom(double min, double max) {
+  return (max - min) * ((double)rand() / (double)RAND_MAX) + min;
 }
 
-size_t Svec_diff(float* a, float* b, size_t size){
-	size_t failed = 0; 
-	for (size_t i = 0; i < size; i++) if (!Sequals(a[i], b[i])) failed++;
-	return failed;
+size_t Svec_diff(float* a, float* b, size_t size) {
+  size_t failed = 0;
+  for (size_t i = 0; i < size; i++)
+    if (!Sequals(a[i], b[i])) failed++;
+  return failed;
 }
 
 int Sequals(float a, float b) {
-		float absA = abs(a);
-		float absB = abs(b);
-		float diff = abs(a - b);
+  float absA = abs(a);
+  float absB = abs(b);
+  float diff = abs(a - b);
 
-		if (a == b) { // shortcut, handles infinities
-			return 1;
-    } else if (a == 0 || b == 0 || (absA + absB < FLT_MIN)) {
-			// a or b is zero or both are extremely close to it
-			// relative error is less meaningful here
-			if (diff < ( FLT_EPSILON * FLT_MIN)) return 1;
-			else return 0; 
-		} else { // use relative error
-			if(diff / std::min((absA + absB), FLT_MIN) < FLT_MIN) return 1;
-			else return 0; 
-		}
-	}
+  if (a == b) {  // shortcut, handles infinities
+    return 1;
+  } else if (a == 0 || b == 0 || (absA + absB < FLT_MIN)) {
+    // a or b is zero or both are extremely close to it
+    // relative error is less meaningful here
+    if (diff < (FLT_EPSILON * FLT_MIN))
+      return 1;
+    else
+      return 0;
+  } else {  // use relative error
+    if (diff / std::min((absA + absB), FLT_MIN) < FLT_MIN)
+      return 1;
+    else
+      return 0;
+  }
+}
 
-
-size_t Dvec_diff(double* a, double* b, size_t size){
-	size_t failed = 0; 
-	for (size_t i = 0; i < size; i++) if (!Dequals(a[i], b[i])) failed++;
-	return failed;
+size_t Dvec_diff(double* a, double* b, size_t size) {
+  size_t failed = 0;
+  for (size_t i = 0; i < size; i++)
+    if (!Dequals(a[i], b[i])) failed++;
+  return failed;
 }
 
 int Dequals(double a, double b) {
-		double absA = abs(a);
-		double absB = abs(b);
-		double diff = abs(a - b);
+  double absA = abs(a);
+  double absB = abs(b);
+  double diff = abs(a - b);
 
-		if (a == b) { // shortcut, handles infinities
-			return 1;
-    } else if (a == 0 || b == 0 || (absA + absB < DBL_MIN)) {
-			// a or b is zero or both are extremely close to it
-			// relative error is less meaningful here
-			if (diff < ( DBL_EPSILON * DBL_MIN)) return 1;
-			else return 0; 
-		} else { // use relative error
-			if(diff / std::min((absA + absB), DBL_MIN) < DBL_EPSILON) return 1;
-			else return 0; 
-		}
-	}
+  if (a == b) {  // shortcut, handles infinities
+    return 1;
+  } else if (a == 0 || b == 0 || (absA + absB < DBL_MIN)) {
+    // a or b is zero or both are extremely close to it
+    // relative error is less meaningful here
+    if (diff < (DBL_EPSILON * DBL_MIN))
+      return 1;
+    else
+      return 0;
+  } else {  // use relative error
+    if (diff / std::min((absA + absB), DBL_MIN) < DBL_EPSILON)
+      return 1;
+    else
+      return 0;
+  }
+}
 
+float* Svec_init_host(size_t size, float val) {
+  float* vec;
+  vec = (float*)malloc(size * sizeof(float));
+  for (size_t i = 0; i < size; i++) vec[i] = val;  //(float) Drandom(-1,1);
+  return vec;
+}

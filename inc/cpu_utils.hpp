@@ -6,8 +6,8 @@
 #ifndef CPU_UTILS_Η
 #define CPU_UTILS_Η
 
-#include "Zawardo_defines.hpp"
 #include <stdio.h>
+#include "Zawardo_defines.hpp"
 
 void debug(char* string);
 void massert(bool condi, const char* msg);
@@ -21,5 +21,5 @@ size_t Svec_diff(float* a, float* b, size_t size);
 int Sequals(float a, float b);
 size_t Dvec_diff(double* a, double* b, size_t size);
 int Dequals(double a, double b);
-
+float* Svec_init_host(size_t size, float val);
 #endif

@@ -62,7 +62,7 @@ def coding_style(filename, filter_ext=None):
 
     if (filter_ext is None) or (filter_ext == "cpp"):
         for ext in extensions_cpp:
-            if (filename.endswith(ext) and (not filename.startswith('inc/cusplibrary-0.5.1/'))):
+            if filename.endswith(ext):
                 execute_cmd("dos2unix " + filename)
                 execute_cmd("clang-format-3.8 -i -style=Google " + filename)
                 return
