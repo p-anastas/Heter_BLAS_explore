@@ -309,7 +309,73 @@ int main(void) {
         gpu_free(d_C);
       } else {
         debug("executing with ghost_beta = 0");
-        debug("Not implemented");
+                gpu_timer_start(cuda_timer);
+        float dev_beta = 0.0;
+        float* reduce_C;
+        gpu_timer_start(cuda_timer);
+        d_A = Svec_transfer_gpu(A, M_gpu * K);
+        d_B = Svec_transfer_gpu(B, K * N);
+        d_C = (float*)gpu_alloc(M * N * sizeof(float));
+        gpu_timer_stop(cuda_timer);
+        gpu_preproc_t = gpu_timer_get(cuda_timer);
+
+        cublasHandle_t handle;
+        cublasStatus_t stat = cublasCreate(&handle);
+        // cublasSetStream(handle, stream1);
+        gpu_timer_start(cuda_timer);
+
+        for (int i = 0; i < NR_ITER; i++) {
+          stat = cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, M_gpu, N, K,
+                             &alpha, d_A, M_gpu, d_B, K, &dev_beta, d_C, M_gpu);
+          cudaMallocHost(&reduce_C, M_gpu * N * sizeof(float));
+          cblas_sscal(M_gpu * N, beta, C, 1);
+          cpu_timer = csecond();
+          cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, M_cpu, N, K,
+                      alpha, &(A[M_gpu * K]), K, B, N, beta, &(C[M_gpu * N]),
+                      N);
+          cpu_timer = csecond() - cpu_timer;
+          cudaDeviceSynchronize();
+        }
+
+        gpu_timer_stop(cuda_timer);
+        cudaCheckErrors();
+        gpu_comp_t = gpu_timer_get(cuda_timer);
+        gpu_timer_start(cuda_timer);
+        cudaMemcpy(reduce_C, d_C, M_gpu * N * sizeof(float),
+                   cudaMemcpyDeviceToHost);
+        cblas_saxpy(M_gpu * N, 1.0, reduce_C, 1, C, 1);
+        gpu_timer_stop(cuda_timer);
+        gpu_reduce_t = gpu_timer_get(cuda_timer);
+
+        printf(
+            "Device overhead(M_gpu=%d, N=%d, K=%d) t_preproc = %lf ms, "
+            "t_reduce = "
+            "%lf ms\n",
+            M_gpu, N, K, gpu_preproc_t, gpu_reduce_t);
+
+        printf("Hybrid Sgemm(M_cpu=%d, N=%d, K=%d) CPU time = ", M_cpu, N, K);
+        report_results((double)cpu_timer, (long)M_cpu * K * (2 * N + 1),
+                       (long)(M_cpu * K + K * N + M_cpu * N * 2) *
+                           sizeof(float));  //(M*N+(long)M*K*(3*N+1))
+        printf("\n");
+
+        printf("Hybrid Sgemm(M=%d, N=%d, K=%d) Hybrid time = ", M, N, K);
+        report_results((double)gpu_comp_t / 1000.0, (long)M * K * (2 * N + 1),
+                       (long)(M * K + K * N + M * N * 2) *
+                           sizeof(float));  //(M*N+(long)M*K*(3*N+1))
+        printf("\n");
+
+        failed = Svec_diff(C_comp, C, M * N);
+        if (failed) {
+          printf("Test failed %d times\n", failed);
+          for (int i = 0; i < 10; i++)
+            printf("CPU vs GPU: %f vs %f\n", C_comp[i], C[i]);
+        } else
+          printf("Test passed(C)\n");
+
+        gpu_free(d_A);
+        gpu_free(d_B);
+        gpu_free(d_C);
       }
     }
   } else if (N_split) {
