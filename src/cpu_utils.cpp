@@ -130,3 +130,15 @@ float* Svec_init_host(size_t size, float val) {
   for (size_t i = 0; i < size; i++) vec[i] = val;  //(float) Drandom(-1,1);
   return vec;
 }
+
+void Stranspose(float* vec, size_t dim1, size_t dim2) {
+  debug("Ignoring transposing for now");
+  /*
+  float swap = 0;
+    for (size_t i = 0; i < dim1; i++) for (size_t j = 0; j < dim2; j++) {
+                  swap = vec[dim1*j + i];
+                  vec[dim1*j + i] = vec[dim2*i + j];
+                  vec[dim2*i + j] = swap;
+  }
+  */
+}

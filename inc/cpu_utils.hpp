@@ -22,4 +22,5 @@ int Sequals(float a, float b);
 size_t Dvec_diff(double* a, double* b, size_t size);
 int Dequals(double a, double b);
 float* Svec_init_host(size_t size, float val);
+void Stranspose(float* vec, size_t dim1, size_t dim2);
 #endif

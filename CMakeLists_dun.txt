@@ -1,7 +1,12 @@
 cmake_minimum_required (VERSION 3.10)
 #set(CMAKE_VERBOSE_MAKEFILE on)
-set ( CMAKE_CUDA_COMPILER "/usr/local/cuda/bin/nvcc" )
-set ( CMAKE_CXX_COMPILER  "/opt/intel/bin/icc" )
+
+# Change these for each machine
+set (CUDA_PREFIX "/usr/local/cuda-9.2") # /usr/local/cuda home 
+set (INTEL_PREFIX "/various/common_tools/intel_parallel_studio") # /home/petyros/intel
+
+set ( CMAKE_CUDA_COMPILER "${CUDA_PREFIX}/bin/nvcc" )
+set ( CMAKE_CXX_COMPILER  "${INTEL_PREFIX}/bin/icc" )
 project (MatrixSplit LANGUAGES CXX CUDA)
 
 set ( PROJECT_SOURCE_DIR ${PROJECT_SOURCE_DIR}/src )
@@ -15,11 +20,11 @@ set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -qopenmp")
 message( "CMAKE_CXX_FLAGS: " ${CMAKE_CXX_FLAGS})
 
 # NVCC compile flags
-set (CMAKE_CUDA_FLAGS "-O3 -w")
+set (CMAKE_CUDA_FLAGS "-O3 -w -ccbin /various/common_tools/intel_parallel_studio/bin/icc -D __ICC=1700") #-ccbin /various/common_tools/intel_parallel_studio/bin/icc -D __ICC=1700 only for cslab Intel
 message( "CMAKE_CUDA_FLAGS: " ${CMAKE_CUDA_FLAGS})
 
 ## CUDA libs and includes
-set (CUDA_PREFIX "/usr/local/cuda")
+
 set (CUDA_INCLUDE_DIRS ${CUDA_PREFIX}/include ${CUDA_PREFIX}/samples/common/inc)
 include_directories(${CUDA_INCLUDE_DIRS} )
 message( "CUDA_INCLUDE_DIRS: " ${CUDA_INCLUDE_DIRS} )
@@ -29,16 +34,16 @@ set (CUDA_LINK "-L${CUDA_LD} -L${CUDA_LD1} -lcudart -lcublas -lcusparse ")
 message( "CUDA_LINK: " ${CUDA_LINK} )
 
 #MKL libs and includes 
-set (MKL_PREFIX "/opt/intel/mkl") # "/various/common_tools/intel_parallel_studio/mkl" for cslab
+set (MKL_PREFIX "${INTEL_PREFIX}/mkl") 
 set (MKL_INCLUDE_DIRS ${MKL_PREFIX}/include)
 include_directories(${MKL_INCLUDE_DIRS} )
 message( "MKL_INCLUDE_DIRS: " ${MKL_INCLUDE_DIRS} )
 set (MKL_LD ${MKL_PREFIX}/lib/intel64)
-set (MKL_LINK  "-L${MKL_LD} -lmkl_rt  -lpthread -lm" ) #-lnuma
+set (MKL_LINK  "-L${MKL_LD} -mkl  -lpthread -lm" ) #-lmkl_rt for home?
 message( "MKL_LINK: " ${MKL_LINK} )
 
 #Intel Parallel Studio libs and includes
-set (INTEL_PREFIX "/opt/intel/parallel_studio_xe_2019") #"/various/common_tools/intel_parallel_studio" for cslab
+
 set (INTEL_INCLUDE_DIRS ${INTEL_PREFIX}/include)
 include_directories(${INTEL_INCLUDE_DIRS} )
 message( "INTEL_INCLUDE_DIRS: " ${INTEL_INCLUDE_DIRS} )

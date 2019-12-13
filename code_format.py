@@ -64,7 +64,7 @@ def coding_style(filename, filter_ext=None):
         for ext in extensions_cpp:
             if filename.endswith(ext):
                 execute_cmd("dos2unix " + filename)
-                execute_cmd("clang-format-3.8 -i -style=Google " + filename)
+                execute_cmd("clang-format-6.0 -i -style=Google " + filename) #clang-format-3.8
                 return
 
     if (filter_ext is None) or (filter_ext == "py"):
