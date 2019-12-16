@@ -42,4 +42,7 @@ void gpu_showMem(char* message);
 float* Svec_init_pinned(size_t size, float val);
 float* Svec_transfer_gpu(float* host_vec, size_t size);
 
+double* Dvec_init_pinned(size_t size, double val);
+double* Dvec_transfer_gpu(double* host_vec, size_t size);
+
 #endif

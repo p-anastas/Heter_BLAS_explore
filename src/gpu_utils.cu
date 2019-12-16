@@ -4,6 +4,7 @@
 /// \brief Some CUDA function calls with added error-checking
 ///
 
+#include <float.h>
 #include <cstdio>
 #include "cpu_utils.hpp"
 #include "gpu_utils.hpp"
@@ -204,6 +205,27 @@ float *Svec_transfer_gpu(float *host_vec, size_t size) {
   float *dev_vec;
   cudaMalloc(&dev_vec, size * sizeof(float));
   cudaMemcpy(dev_vec, host_vec, size * sizeof(float), cudaMemcpyHostToDevice);
+  cudaCheckErrors();
+  return dev_vec;
+}
+
+double *Dvec_init_pinned(size_t size, double val) {
+  double *vec;
+  cudaMallocHost(&vec, size * sizeof(double));
+  if (Dequals(val, 42, DBL_EPSILON)) {
+#pragma omp parallel for
+    for (size_t i = 0; i < size; i++) vec[i] = Drandom(-1, 1);
+  } else {
+#pragma omp parallel for
+    for (size_t i = 0; i < size; i++) vec[i] = val;
+  }
+  return vec;
+}
+
+double *Dvec_transfer_gpu(double *host_vec, size_t size) {
+  double *dev_vec;
+  cudaMalloc(&dev_vec, size * sizeof(double));
+  cudaMemcpy(dev_vec, host_vec, size * sizeof(double), cudaMemcpyHostToDevice);
   cudaCheckErrors();
   return dev_vec;
 }
