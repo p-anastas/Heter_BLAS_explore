@@ -153,17 +153,6 @@ void Stranspose(float* vec, size_t dim1, size_t dim2) {
   */
 }
 
-double* Dtranspose(double* vec, size_t dim1, size_t dim2) {
-  // debug("Ignoring transposing for now");
-  double swap = 0;
-  double* buffer = (double*)malloc(dim1 * dim2 * sizeof(double));
-  for (size_t i = 0; i < dim1; i++) {
-#pragma omp parallel for
-    for (size_t j = 0; j < dim2; j++) buffer[dim1 * j + i] = vec[dim2 * i + j];
-  }
-  return buffer;
-}
-
 void Dvec_copy(double* dest, double* src, size_t size) {
   /*
   #pragma omp parallel for
@@ -189,4 +178,35 @@ void Dtest_equality(double* C_comp, double* C, size_t size) {
   for (int i = 0; i < 10; i++)
     if (!Dequals(C_comp[i], C[i], eps))
       printf("CPU vs GPU: %.15lf vs %.15lf\n", C_comp[i], C[i]);
+}
+
+void Dtranspose(double* buffer, double* vec, size_t dim1, size_t dim2) {
+  massert(buffer && vec, "Dtranspose: Tried to transpose uninitialized vector");
+  massert(buffer != vec, "Dtranspose: Tried to transpose in place");
+  double swap = 0;
+  for (size_t i = 0; i < dim1; i++) {
+#pragma omp parallel for
+    for (size_t j = 0; j < dim2; j++) buffer[dim1 * j + i] = vec[dim2 * i + j];
+  }
+}
+
+void Dtranspose_r(double* buffer, double* vec, size_t dim1, size_t dim2) {
+  massert(buffer && vec,
+          "Dtranspose_r: Tried to transpose uninitialized vector");
+  massert(buffer != vec, "Dtranspose_r: Tried to transpose in place");
+  double swap = 0;
+  for (size_t i = 0; i < dim2; i++) {
+#pragma omp parallel for
+    for (size_t j = 0; j < dim1; j++) buffer[dim2 * j + i] = vec[dim1 * i + j];
+  }
+}
+
+void Dtranspose_add(double* buffer, double* vec, size_t dim1, size_t dim2) {
+  massert(buffer && vec, "Dtranspose: Tried to transpose uninitialized vector");
+  massert(buffer != vec, "Dtranspose: Tried to transpose in place");
+  double swap = 0;
+  for (size_t i = 0; i < dim1; i++) {
+#pragma omp parallel for
+    for (size_t j = 0; j < dim2; j++) buffer[dim1 * j + i] += vec[dim2 * i + j];
+  }
 }

@@ -25,7 +25,9 @@ int Dequals(double a, double b, double eps);
 float* Svec_init_host(size_t size, float val);
 double* Dvec_init_host(size_t size, double val);
 void Stranspose(float* vec, size_t dim1, size_t dim2);
-double* Dtranspose(double* vec, size_t dim1, size_t dim2);
 void Dvec_copy(double* dest, double* src, size_t size);
 void Dtest_equality(double* C_comp, double* C, size_t size);
+void Dtranspose(double* trans, double* vec, size_t dim1, size_t dim2);
+void Dtranspose_r(double* trans, double* vec, size_t dim1, size_t dim2);
+void Dtranspose_add(double* buffer, double* vec, size_t dim1, size_t dim2);
 #endif

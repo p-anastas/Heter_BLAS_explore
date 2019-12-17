@@ -157,15 +157,27 @@ void cudaCheckErrors() {
     printf("Async kernel error: %s\n", cudaGetErrorString(errAsync));
 }
 
-void *gpu_alloc(size_t count) {
+void *gpu_malloc(size_t count) {
   void *ret;
   massert(cudaMalloc(&ret, count) == cudaSuccess,
           cudaGetErrorString(cudaGetLastError()));
   return ret;
 }
 
+void *pin_malloc(size_t count) {
+  void *ret;
+  massert(cudaMallocHost(&ret, count) == cudaSuccess,
+          cudaGetErrorString(cudaGetLastError()));
+  return ret;
+}
+
 void gpu_free(void *gpuptr) {
   massert(cudaFree(gpuptr) == cudaSuccess,
+          cudaGetErrorString(cudaGetLastError()));
+}
+
+void pin_free(void *gpuptr) {
+  massert(cudaFreeHost(gpuptr) == cudaSuccess,
           cudaGetErrorString(cudaGetLastError()));
 }
 
@@ -195,23 +207,20 @@ float gpu_timer_get(gpu_timer_p timer) {
 }
 
 float *Svec_init_pinned(size_t size, float val) {
-  float *vec;
-  cudaMallocHost(&vec, size * sizeof(float));
+  float *vec = (float *)pin_malloc(size * sizeof(float));
   for (size_t i = 0; i < size; i++) vec[i] = val;  //(float) Drandom(-1,1);
   return vec;
 }
 
 float *Svec_transfer_gpu(float *host_vec, size_t size) {
-  float *dev_vec;
-  cudaMalloc(&dev_vec, size * sizeof(float));
+  float *dev_vec = (float *)gpu_malloc(size * sizeof(float));
   cudaMemcpy(dev_vec, host_vec, size * sizeof(float), cudaMemcpyHostToDevice);
   cudaCheckErrors();
   return dev_vec;
 }
 
 double *Dvec_init_pinned(size_t size, double val) {
-  double *vec;
-  cudaMallocHost(&vec, size * sizeof(double));
+  double *vec = (double *)pin_malloc(size * sizeof(double));
   if (Dequals(val, 42, DBL_EPSILON)) {
 #pragma omp parallel for
     for (size_t i = 0; i < size; i++) vec[i] = Drandom(-1, 1);
@@ -223,8 +232,7 @@ double *Dvec_init_pinned(size_t size, double val) {
 }
 
 double *Dvec_transfer_gpu(double *host_vec, size_t size) {
-  double *dev_vec;
-  cudaMalloc(&dev_vec, size * sizeof(double));
+  double *dev_vec = (double *)gpu_malloc(size * sizeof(double));
   cudaMemcpy(dev_vec, host_vec, size * sizeof(double), cudaMemcpyHostToDevice);
   cudaCheckErrors();
   return dev_vec;

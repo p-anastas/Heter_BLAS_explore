@@ -31,10 +31,12 @@ void print_devices();
 void cudaCheckErrors();
 
 /// Allocate 'count' bytes of CUDA device memory (+errorcheck)
-void* gpu_alloc(size_t count);
+void* gpu_malloc(size_t count);
+void* pin_malloc(size_t count);
 
 /// Free the CUDA device  memory pointed by 'gpuptr' (+errorcheck)
 void gpu_free(void* gpuptr);
+void pin_free(void* gpuptr);
 
 /// Print Free/Total CUDA device memory along with 'message' (+errorcheck)
 void gpu_showMem(char* message);
