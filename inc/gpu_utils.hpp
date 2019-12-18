@@ -46,5 +46,6 @@ float* Svec_transfer_gpu(float* host_vec, size_t size);
 
 double* Dvec_init_pinned(size_t size, double val);
 double* Dvec_transfer_gpu(double* host_vec, size_t size);
+double* Dvec_transfer_from_gpu(double* dev_vec, size_t size);
 
 #endif

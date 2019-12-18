@@ -237,3 +237,10 @@ double *Dvec_transfer_gpu(double *host_vec, size_t size) {
   cudaCheckErrors();
   return dev_vec;
 }
+
+double *Dvec_transfer_from_gpu(double *dev_vec, size_t size) {
+  double *host_vec = (double *)pin_malloc(size * sizeof(double));
+  cudaMemcpy(host_vec, dev_vec, size * sizeof(double), cudaMemcpyDeviceToHost);
+  cudaCheckErrors();
+  return host_vec;
+}
