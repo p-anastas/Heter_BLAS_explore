@@ -244,3 +244,21 @@ double *Dvec_transfer_from_gpu(double *dev_vec, size_t size) {
   cudaCheckErrors();
   return host_vec;
 }
+
+double *Dvec_chunk_transfer_gpu(double *host_vec, size_t chunks, size_t size,
+                                size_t stride) {
+  double *dev_vec = (double *)gpu_malloc(size * chunks * sizeof(double));
+  for (int i = 0; i < chunks; i++)
+    cudaMemcpy(&dev_vec[i * size], &host_vec[i * stride], size * sizeof(double),
+               cudaMemcpyHostToDevice);
+  cudaCheckErrors();
+  return dev_vec;
+}
+
+void Dvec_chunk_copy_from_gpu(double *host_vec, double *dev_vec, size_t chunks,
+                              size_t size, size_t stride) {
+  for (int i = 0; i < chunks; i++)
+    cudaMemcpy(&host_vec[i * stride], &dev_vec[i * size], size * sizeof(double),
+               cudaMemcpyDeviceToHost);
+  cudaCheckErrors();
+}
