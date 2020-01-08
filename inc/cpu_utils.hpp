@@ -28,6 +28,8 @@ void Stranspose(float* vec, size_t dim1, size_t dim2);
 void Dvec_copy(double* dest, double* src, size_t size);
 void Dtest_equality(double* C_comp, double* C, size_t size);
 void Dtranspose(double* trans, double* vec, size_t dim1, size_t dim2);
-void Dtranspose_r(double* trans, double* vec, size_t dim1, size_t dim2);
+void Dtranspose_stride_src(double* buffer, double* vec, size_t dim1, size_t dim2, size_t stride);
+void Dtranspose_stride_dest(double* buffer, double* vec, size_t dim1, size_t dim2, size_t stride);
 void Dtranspose_add(double* buffer, double* vec, size_t dim1, size_t dim2);
+void Dtranspose_stride_dest_add(double* buffer, double* vec, size_t dim1, size_t dim2, size_t stride);
 #endif

@@ -43,7 +43,7 @@ typedef struct control_str {
   mem_layout A_mem;
   mem_layout B_mem;
   mem_layout C_mem;
-  double pin_alloc_t = 0, scatter_t = 0, transpose_t = 0, cpu_ex_t = 0,
+  double alloc_t = 0, scatter_t = 0, transpose_t = 0, cpu_ex_t = 0,
          gpu_ex_t = 0, gather_t = 0, reduce_t = 0;
 
 } * control_p;
@@ -52,7 +52,6 @@ typedef struct pred_str {
   size_t M_split;
   size_t N_split;
   size_t K_split;
-  CBLAS_LAYOUT cblas_target;
   size_t Cadd_device_id;
   // TODO: Not implemented
   int asynch_trans = 0;
@@ -160,7 +159,7 @@ double *gpu_dgemm(control_p ctrl, predict_p pred, size_t M, size_t N, size_t K,
     C_gpu = (double *)gpu_malloc(M * N * sizeof(double));
     C_T = (double *)pin_malloc(M * N * sizeof(double));
     local_t = csecond() - local_t;
-    ctrl->pin_alloc_t += local_t;
+    ctrl->alloc_t += local_t;
   }
 
   else if (pred->Cadd_device_id == 1) {
@@ -224,7 +223,7 @@ double *gpu_dgemm(control_p ctrl, predict_p pred, size_t M, size_t N, size_t K,
       "Device overhead(M=%d, N=%d, K=%d) pin_alloc = %lf ms, scatter = %lf "
       "ms, "
       "transpose = %lf ms, gather = %lf ms, reduce = %lf ms\n",
-      M, N, K, 1000 * ctrl->pin_alloc_t, 1000 * ctrl->scatter_t,
+      M, N, K, 1000 * ctrl->alloc_t, 1000 * ctrl->scatter_t,
       1000 * ctrl->transpose_t, 1000 * ctrl->gather_t, 1000 * ctrl->reduce_t);
 
   printf("Hybrid Sgemm(M=%d, N=%d, K=%d) GPU time = ", M, N, K);
@@ -232,7 +231,6 @@ double *gpu_dgemm(control_p ctrl, predict_p pred, size_t M, size_t N, size_t K,
                  (long)(M * K + K * N + M * N * 2) *
                      sizeof(double));  //(M*N+(long)M*K*(3*N+1))
   printf("\n");
-  // pin_free(C_buffer);
 
   // FIXME: implement correct frees with switches
   gpu_free(A_gpu);
@@ -273,217 +271,132 @@ double *hybrid_dgemm_Msplit(control_p ctrl, predict_p pred, size_t M, size_t N,
       "segfaults)...");
   double test = A[M * K - 1];
   test = B[K * N - 1];
-  if (beta != 0) test = C[M * N - 1];
+  if(beta || C) test = C[M * N - 1];
   debug("hybrid_dgemm_Msplit -> Passed.");
   double *C_out, local_t;
 
   double *A_cpu, *A_gpu, *B_cpu, *B_gpu, *C_cpu, *C_gpu;
 
-  double *A_T, *B_T, *C_T, *C_buffer, cpu_beta = 0, gpu_beta = 0;
+  double *C_buffer, cpu_beta = 0, gpu_beta = 0;
 
   size_t M_gpu = pred->M_split, M_cpu = M - pred->M_split, ldA = 0, ldB = 0,
          ldC = 0, d_ldA = 0, d_ldB = 0, d_ldC = 0;
   cublasOperation_t gpu_op_A, gpu_op_B;  // CUBLAS_OP_N, CUBLAS_OP_T
   CBLAS_TRANSPOSE cpu_op_A, cpu_op_B;    // CblasNoTrans, CblasTrans
 
+ CBLAS_LAYOUT cblas_target;
   cublasHandle_t handle;
   cublasStatus_t stat = cublasCreate(&handle);
 
   gpu_timer_p cuda_timer = gpu_timer_init();
 
   /// Setup A parts on host and device
-
+      local_t = csecond();
   switch (ctrl->A_mem) {
     case (ROW_MAJOR):
-      local_t = csecond();
       A_gpu = Dvec_transfer_gpu(A, M_gpu * K);
-      local_t = csecond() - local_t;
-      ctrl->scatter_t += local_t;
       gpu_op_A = CUBLAS_OP_T;
       d_ldA = K;
       A_cpu = &(A[M_gpu * K]);
       ldA = K;
-      if (pred->cblas_target == CblasRowMajor)
+      if (ctrl->C_mem == ROW_MAJOR)
         cpu_op_A = CblasNoTrans;
-      else if (pred->cblas_target == CblasColMajor)
+      else if (ctrl->C_mem == COL_MAJOR)
         cpu_op_A = CblasTrans;
       break;
     case (COL_MAJOR):
       gpu_op_A = CUBLAS_OP_N;
       d_ldA = M_gpu;
-
-      if (pred->cblas_target == CblasRowMajor)
-        error(
-            "hybrid_dgemm_Msplit -> pred->cblas_target == CblasRowMajor and "
-            "pred->A_mem == COL_MAJOR -> Mode not allowed.");
-      else if (pred->cblas_target == CblasColMajor) {
         A_cpu = &(A[M_gpu]);
         ldA = M;
+      if (ctrl->C_mem == ROW_MAJOR)
+        cpu_op_A = CblasTrans;
+      else if (ctrl->C_mem == COL_MAJOR) 
         cpu_op_A = CblasNoTrans;
-      }
-      local_t = csecond();
       A_gpu = Dvec_chunk_transfer_gpu(A, K, M_gpu, M);
-      local_t = csecond() - local_t;
-      ctrl->scatter_t += local_t;
-
       break;
     default:
       error("hybrid_dgemm_Msplit -> Unreachable default reached ");
   }
+      local_t = csecond() - local_t;
+      ctrl->scatter_t += local_t;
 
   /// Setup B parts on host and device
-  B_cpu = B;
   local_t = csecond();
+  B_cpu = B;
   B_gpu = Dvec_transfer_gpu(B, K * N);
-  local_t = csecond() - local_t;
-  ctrl->scatter_t += local_t;
-
   switch (ctrl->B_mem) {
     case (ROW_MAJOR):
       gpu_op_B = CUBLAS_OP_T;
       d_ldB = N;
       ldB = N;
-      if (pred->cblas_target == CblasRowMajor)
+      if (ctrl->C_mem == ROW_MAJOR)
         cpu_op_B = CblasNoTrans;
-      else if (pred->cblas_target == CblasColMajor)
+      else if (ctrl->C_mem == COL_MAJOR)
         cpu_op_B = CblasTrans;
       break;
     case (COL_MAJOR):
       gpu_op_B = CUBLAS_OP_N;
       d_ldB = K;
       ldB = K;
-      if (pred->cblas_target == CblasRowMajor)
+      if (ctrl->C_mem == ROW_MAJOR)
         cpu_op_B = CblasTrans;
-      else if (pred->cblas_target == CblasColMajor)
+      else if (ctrl->C_mem == COL_MAJOR)
         cpu_op_B = CblasNoTrans;
       break;
     default:
       error("hybrid_dgemm_Msplit -> Unreachable default reached ");
   }
+  local_t = csecond() - local_t;
+  ctrl->scatter_t += local_t;
 
   /// Setup C parts on host and device
   d_ldC = M_gpu;
 
-  if (!beta) {
+  if (!beta || !pred->Cadd_device_id) {
+    cpu_beta = beta;
     local_t = csecond();
     C_gpu = (double *)gpu_malloc(M_gpu * N * sizeof(double));
     C_buffer = (double *)pin_malloc(M_gpu * N * sizeof(double));
-    if (!C)
-      // TODO: Can we use only as much space as required?
-      error("Unallocated input C not implemented");
+    if (!C) C = (double *) malloc(M * N * sizeof(double));
+
     local_t = csecond() - local_t;
-    ctrl->pin_alloc_t += local_t;
-
-    if (ctrl->C_mem == ROW_MAJOR) {
-      if (pred->cblas_target == CblasRowMajor) {
-        C_cpu = &(C[M_gpu * N]);
-        ldC = N;
-      } else if (pred->cblas_target == CblasColMajor) {
-        local_t = csecond();
-        C_cpu = (double *)pin_malloc(M_cpu * N * sizeof(double));
-        local_t = csecond() - local_t;
-        ctrl->pin_alloc_t += local_t;
-        ldC = M_cpu;
-      }
-    } else if (ctrl->C_mem == COL_MAJOR) {
-      C_cpu = &(C[M_gpu]);
-      if (pred->cblas_target == CblasRowMajor)
-        error(
-            "hybrid_dgemm_Msplit -> pred->cblas_target == CblasRowMajor and "
-            "pred->C_mem == COL_MAJOR -> Mode not allowed.");
-      else if (pred->cblas_target == CblasColMajor)
-        ldC = M;
-    }
-
+    ctrl->alloc_t += local_t;
   } else if (pred->Cadd_device_id == -1) {
     cpu_beta = gpu_beta = beta;
     if (ctrl->C_mem == ROW_MAJOR) {
-      C_cpu = &(C[M_gpu * N]);
-      if (pred->cblas_target == CblasRowMajor)
-        ldC = N;
-      else if (pred->cblas_target == CblasColMajor) {
-        local_t = csecond();
-        C_cpu = (double *)pin_malloc(M_cpu * N * sizeof(double));
-        local_t = csecond() - local_t;
-        ctrl->pin_alloc_t += local_t;
-        local_t = csecond();
-        Dtranspose(C_cpu, &(C[M_gpu * N]), M_cpu, N);
-        local_t = csecond() - local_t;
-        ctrl->transpose_t += local_t;
-        ldC = M_cpu;
-      }
       local_t = csecond();
-      C_T = (double *)pin_malloc(M_gpu * N * sizeof(double));
-      C_buffer = C_T;
+      C_buffer = (double *)pin_malloc(M_gpu * N * sizeof(double));
       local_t = csecond() - local_t;
-      ctrl->pin_alloc_t += local_t;
+      ctrl->alloc_t += local_t;
       local_t = csecond();
-      Dtranspose(C_T, C, M_gpu, N);
+      Dtranspose(C_buffer, C, M_gpu, N);
       local_t = csecond() - local_t;
       ctrl->transpose_t += local_t;
       local_t = csecond();
-      C_gpu = Dvec_transfer_gpu(C_T, M_gpu * N);
+      C_gpu = Dvec_transfer_gpu(C_buffer, M_gpu * N);
       local_t = csecond() - local_t;
       ctrl->scatter_t += local_t;
     } else if (ctrl->C_mem == COL_MAJOR) {
-      if (pred->cblas_target == CblasRowMajor)
-        error(
-            "hybrid_dgemm_Msplit -> pred->cblas_target == CblasRowMajor and "
-            "pred->C_mem == COL_MAJOR -> Mode not allowed.");
-      else if (pred->cblas_target == CblasColMajor) {
-        C_cpu = &(C[M_gpu]);
-        ldC = M;
-      }
       local_t = csecond();
       C_gpu = Dvec_chunk_transfer_gpu(C, N, M_gpu, M);
       local_t = csecond() - local_t;
       ctrl->scatter_t += local_t;
     }
 
-  } else if (pred->Cadd_device_id == 0) {
-    cpu_beta = beta;
-    local_t = csecond();
-    C_gpu = (double *)gpu_malloc(M_gpu * N * sizeof(double));
-    C_buffer = (double *)pin_malloc(M_gpu * N * sizeof(double));
-    local_t = csecond() - local_t;
-    ctrl->pin_alloc_t += local_t;
-
-    switch (ctrl->C_mem) {
-      case (ROW_MAJOR):
-        if (pred->cblas_target == CblasRowMajor) {
-          C_cpu = &(C[M_gpu * N]);
-          ldC = N;
-        } else if (pred->cblas_target == CblasColMajor) {
-          local_t = csecond();
-          C_cpu = (double *)pin_malloc(M_cpu * N * sizeof(double));
-          local_t = csecond() - local_t;
-          ctrl->pin_alloc_t += local_t;
-          local_t = csecond();
-          Dtranspose(C_cpu, &(C[M_gpu * N]), M_cpu, N);
-          local_t = csecond() - local_t;
-          ctrl->transpose_t += local_t;
-          ldC = M_cpu;
-        }
-        break;
-      case (COL_MAJOR):
-        if (pred->cblas_target == CblasRowMajor)
-          error(
-              "hybrid_dgemm_Msplit -> pred->cblas_target == CblasRowMajor and "
-              "pred->C_mem == COL_MAJOR -> Mode not allowed");
-        else if (pred->cblas_target == CblasColMajor) {
-          error(
-              "hybrid_dgemm_Msplit -> pred->cblas_target == CblasColMajor and "
-              "pred->C_mem == COL_MAJOR and pred->Cadd_device_id == 0 -> Mode "
-              "not allowed");
-        }
-        break;
-      default:
-        error("hybrid_dgemm_Msplit -> A Unknown mem type");
-    }
-
-  } else if (pred->Cadd_device_id == 1) {
+  }else if (pred->Cadd_device_id == 1) {
     error("hybrid_dgemm_Msplit -> pred->Cadd_device_id == 1 Unimplemented.");
   }
+
+    if (ctrl->C_mem == ROW_MAJOR) {
+cblas_target = CblasRowMajor;
+        C_cpu = &(C[M_gpu * N]);
+        ldC = N;
+    } else if (ctrl->C_mem == COL_MAJOR) {
+      C_cpu = &(C[M_gpu]);
+        ldC = M;
+cblas_target = CblasColMajor;
+    }
 
   if (!ldA || !ldB || !ldC || !d_ldA || !d_ldB || !d_ldC)
     error("hybrid_dgemm_Msplit -> Some ld_dim were not defined correctly (=0)");
@@ -496,13 +409,23 @@ double *hybrid_dgemm_Msplit(control_p ctrl, predict_p pred, size_t M, size_t N,
 
   if (pred->Cadd_device_id == 0) {
     local_t = csecond();
+    switch (ctrl->C_mem) {
+      case (ROW_MAJOR): 
     cblas_dscal(N * M_gpu, beta, C, 1);
+        break;
+      case (COL_MAJOR):
+	for (int i = 0; i<N; i++) 
+    cblas_daxpy(M_gpu, beta, &C[i*M], 1, &C_buffer[i*M_gpu], 1);
+        break;
+      default:
+        error("hybrid_dgemm_Msplit -> A Unknown mem type");
+    }    
     local_t = csecond() - local_t;
     ctrl->reduce_t = local_t;
   }
 
   local_t = csecond();
-  cblas_dgemm(pred->cblas_target, cpu_op_A, cpu_op_B, M_cpu, N, K, alpha, A_cpu,
+  cblas_dgemm(cblas_target, cpu_op_A, cpu_op_B, M_cpu, N, K, alpha, A_cpu,
               ldA, B_cpu, ldB, cpu_beta, C_cpu, ldC);
   local_t = csecond() - local_t;
   ctrl->cpu_ex_t = local_t;
@@ -516,7 +439,6 @@ double *hybrid_dgemm_Msplit(control_p ctrl, predict_p pred, size_t M, size_t N,
                cudaMemcpyDeviceToHost);
     local_t = csecond() - local_t;
     ctrl->gather_t = local_t;
-    if (pred->cblas_target == CblasRowMajor) {
       local_t = csecond();
       if (pred->Cadd_device_id == 0)
         Dtranspose_add(C, C_buffer, N, M_gpu);
@@ -524,33 +446,23 @@ double *hybrid_dgemm_Msplit(control_p ctrl, predict_p pred, size_t M, size_t N,
         Dtranspose(C, C_buffer, N, M_gpu);
       local_t = csecond() - local_t;
       ctrl->transpose_t += local_t;
-    } else if (pred->cblas_target == CblasColMajor) {
-      local_t = csecond();
-      if (pred->Cadd_device_id == 0)
-        Dtranspose_add(C, C_buffer, N, M_gpu);
-      else
-        Dtranspose(C, C_buffer, N, M_gpu);
-      Dtranspose(&C[N * M_gpu], C_cpu, N, M_cpu);
-      local_t = csecond() - local_t;
-      ctrl->transpose_t += local_t;
-    }
+
   } else if (ctrl->C_mem == COL_MAJOR) {
-    if (pred->cblas_target == CblasRowMajor) {
-      error("Should be thrown earlier(?)");
-    }
-    if (pred->cblas_target == CblasColMajor) {
       local_t = csecond();
       Dvec_chunk_copy_from_gpu(C, C_gpu, N, M_gpu, M);
+
+      if (pred->Cadd_device_id == 0)
+        	for (int i = 0; i<N; i++) 
+    cblas_daxpy(M_gpu, 1.0, &C_buffer[i*M_gpu], 1, &C[i*M], 1);
       local_t = csecond() - local_t;
       ctrl->gather_t = local_t;
-    }
   }
 
   printf(
       "Device overhead(M=%d, N=%d, K=%d) pin_alloc = %lf ms, scatter = %lf "
       "ms, "
       "transpose = %lf ms, gather = %lf ms, reduce = %lf ms\n",
-      M, N, K, 1000 * ctrl->pin_alloc_t, 1000 * ctrl->scatter_t,
+      M, N, K, 1000 * ctrl->alloc_t, 1000 * ctrl->scatter_t,
       1000 * ctrl->transpose_t, 1000 * ctrl->gather_t, 1000 * ctrl->reduce_t);
 
   printf("Hybrid Sgemm(M_cpu=%d, N=%d, K=%d) CPU time = ", M_cpu, N, K);
@@ -571,6 +483,7 @@ double *hybrid_dgemm_Msplit(control_p ctrl, predict_p pred, size_t M, size_t N,
   gpu_free(A_gpu);
   gpu_free(B_gpu);
   gpu_free(C_gpu);
+  pin_free(C_buffer);
 
   C_out = C;
   debug("<- hybrid_dgemm_Msplit()\n");
@@ -606,220 +519,139 @@ double *hybrid_dgemm_Nsplit(control_p ctrl, predict_p pred, size_t M, size_t N,
       "segfaults)...");
   double test = A[M * K - 1];
   test = B[K * N - 1];
-  if (beta != 0) test = C[M * N - 1];
+  if(beta || C) test = C[M * N - 1];
   debug("hybrid_dgemm_Nsplit -> Passed.");
   double *C_out, local_t;
 
   double *A_cpu, *A_gpu, *B_cpu, *B_gpu, *C_cpu, *C_gpu;
 
-  double *A_T, *B_T, *C_T, *C_buffer, cpu_beta = 0, gpu_beta = 0;
+  double *C_buffer, cpu_beta = 0, gpu_beta = 0;
 
   size_t N_gpu = pred->N_split, N_cpu = N - pred->N_split, ldA = 0, ldB = 0,
          ldC = 0, d_ldA = 0, d_ldB = 0, d_ldC = 0;
   cublasOperation_t gpu_op_A, gpu_op_B;  // CUBLAS_OP_N, CUBLAS_OP_T
   CBLAS_TRANSPOSE cpu_op_A, cpu_op_B;    // CblasNoTrans, CblasTrans
 
+ CBLAS_LAYOUT cblas_target;
   cublasHandle_t handle;
   cublasStatus_t stat = cublasCreate(&handle);
 
   gpu_timer_p cuda_timer = gpu_timer_init();
 
   /// Setup A parts on host and device
-  A_cpu = A;
   local_t = csecond();
+  A_cpu = A;
   A_gpu = Dvec_transfer_gpu(A, M * K);
-  local_t = csecond() - local_t;
-  ctrl->scatter_t += local_t;
+
 
   switch (ctrl->A_mem) {
     case (ROW_MAJOR):
       gpu_op_A = CUBLAS_OP_T;
       d_ldA = K;
       ldA = K;
-      if (pred->cblas_target == CblasRowMajor)
+      if (ctrl->C_mem == ROW_MAJOR)
         cpu_op_A = CblasNoTrans;
-      else if (pred->cblas_target == CblasColMajor)
+      else if (ctrl->C_mem == COL_MAJOR)
         cpu_op_A = CblasTrans;
       break;
     case (COL_MAJOR):
       gpu_op_A = CUBLAS_OP_N;
       d_ldA = M;
       ldA = M;
-      if (pred->cblas_target == CblasRowMajor)
+      if (ctrl->C_mem == ROW_MAJOR)
         cpu_op_A = CblasTrans;
-      else if (pred->cblas_target == CblasColMajor)
+      else if (ctrl->C_mem == COL_MAJOR)
         cpu_op_A = CblasNoTrans;
       break;
     default:
       error("hybrid_dgemm_Nsplit -> Unreachable default reached ");
   }
+  local_t = csecond() - local_t;
+  ctrl->scatter_t += local_t;
 
   /// Setup B parts on host and device
-
+  local_t = csecond();
   switch (ctrl->B_mem) {
-    case (COL_MAJOR):
-      local_t = csecond();
-      B_gpu = Dvec_transfer_gpu(B, N_gpu * K);
-      local_t = csecond() - local_t;
-      ctrl->scatter_t += local_t;
-      gpu_op_B = CUBLAS_OP_N;
-      d_ldB = K;
-      B_cpu = &(B[N_gpu * K]);
-      ldB = K;
-      if (pred->cblas_target == CblasRowMajor)
-        cpu_op_B = CblasTrans;
-      else if (pred->cblas_target == CblasColMajor)
-        cpu_op_B = CblasNoTrans;
-      break;
     case (ROW_MAJOR):
       gpu_op_B = CUBLAS_OP_T;
       d_ldB = N_gpu;
 
-      if (pred->cblas_target == CblasRowMajor) {
-        B_cpu = &(A[N_gpu]);
+        B_cpu = &(B[N_gpu]);
         ldB = N;
+      if (ctrl->C_mem == ROW_MAJOR)
         cpu_op_B = CblasNoTrans;
-      }
-
-      else if (pred->cblas_target == CblasColMajor)
-        error(
-            "hybrid_dgemm_Nsplit -> pred->cblas_target == CblasColMajor and "
-            "pred->B_mem == ROW_MAJOR -> Mode not allowed.");
-
-      local_t = csecond();
+      else if (ctrl->C_mem == COL_MAJOR) 
+        cpu_op_B = CblasTrans;
       B_gpu = Dvec_chunk_transfer_gpu(B, K, N_gpu, N);
-      local_t = csecond() - local_t;
-      ctrl->scatter_t += local_t;
-
+      break;
+    case (COL_MAJOR):
+      B_gpu = Dvec_transfer_gpu(B, N_gpu * K);
+      gpu_op_B = CUBLAS_OP_N;
+      d_ldB = K;
+      B_cpu = &(B[N_gpu * K]);
+      ldB = K;
+      if (ctrl->C_mem == ROW_MAJOR)
+        cpu_op_B = CblasTrans;
+      else if (ctrl->C_mem == COL_MAJOR)
+        cpu_op_B = CblasNoTrans;
       break;
     default:
       error("hybrid_dgemm_Nsplit -> Unreachable default reached ");
   }
+      local_t = csecond() - local_t;
+      ctrl->scatter_t += local_t;
 
   /// Setup C parts on host and device
   d_ldC = M;
 
-  if (!beta) {
+  if (!beta || !pred->Cadd_device_id) {
+    cpu_beta = beta;
     local_t = csecond();
     C_gpu = (double *)gpu_malloc(M * N_gpu * sizeof(double));
     C_buffer = (double *)pin_malloc(M * N_gpu * sizeof(double));
-    if (!C)
-      // TODO: Can we use only as much space as required?
-      error("Unallocated input C not implemented");
+    if (!C) C = (double *) malloc(M * N * sizeof(double));
+
     local_t = csecond() - local_t;
-    ctrl->pin_alloc_t += local_t;
+    ctrl->alloc_t += local_t;
+  } else if (pred->Cadd_device_id == -1) {
+    cpu_beta = gpu_beta = beta;
+    if (ctrl->C_mem == ROW_MAJOR) {
+      local_t = csecond();
+      C_buffer = (double *)pin_malloc(M * N_gpu * sizeof(double));
+      local_t = csecond() - local_t;
+      ctrl->alloc_t += local_t;
+      local_t = csecond();
+      Dtranspose_stride_src(C_buffer, C, M, N_gpu, N);
+      local_t = csecond() - local_t;
+      ctrl->transpose_t += local_t;
+      local_t = csecond();
+      C_gpu = Dvec_transfer_gpu(C_buffer, M * N_gpu);
+      local_t = csecond() - local_t;
+      ctrl->scatter_t += local_t;
+    } else if (ctrl->C_mem == COL_MAJOR) {
+      local_t = csecond();
+	C_buffer = (double *)pin_malloc(1 * sizeof(double)); ///Dummy for free;
+      C_gpu = Dvec_transfer_gpu(C, N_gpu* M);
+      local_t = csecond() - local_t;
+      ctrl->scatter_t += local_t;
+    }
 
-    if (ctrl->C_mem == COL_MAJOR) {
-      if (pred->cblas_target == CblasColMajor) {
-        C_cpu = &(C[N_gpu * M]);
-        ldC = M;
-      } else if (pred->cblas_target == CblasRowMajor)
-        error(
-            "hybrid_dgemm_Msplit -> pred->cblas_target == CblasRowMajor and "
-            "pred->C_mem == COL_MAJOR -> Mode not allowed.");
+  }else if (pred->Cadd_device_id == 1) {
+    error("hybrid_dgemm_Nsplit -> pred->Cadd_device_id == 1 Unimplemented.");
+  }
 
-    } else if (ctrl->C_mem == ROW_MAJOR) {
-      if (pred->cblas_target == CblasRowMajor) {
+    if (ctrl->C_mem == ROW_MAJOR) {
+cblas_target = CblasRowMajor;
         C_cpu = &(C[N_gpu]);
         ldC = N;
-      } else if (pred->cblas_target == CblasColMajor) {
-        local_t = csecond();
-        C_cpu = (double *)pin_malloc(M * N_cpu * sizeof(double));
-        local_t = csecond() - local_t;
-        ctrl->pin_alloc_t += local_t;
+    } else if (ctrl->C_mem == COL_MAJOR) {
+      C_cpu = &(C[N_gpu*M]);
         ldC = M;
-      }
+cblas_target = CblasColMajor;
     }
-  }
-  /*else if (pred->Cadd_device_id == -1) {
-      cpu_beta = gpu_beta = beta;
-      if (ctrl->C_mem == ROW_MAJOR) {
-        C_cpu = &(C[M_gpu * N]);
-        if (pred->cblas_target == CblasRowMajor)
-          ldC = N;
-        else if (pred->cblas_target == CblasColMajor) {
-          local_t = csecond();
-          C_cpu = (double *)pin_malloc(M_cpu * N * sizeof(double));
-          local_t = csecond() - local_t;
-          ctrl->pin_alloc_t += local_t;
-          local_t = csecond();
-          Dtranspose(C_cpu, &(C[M_gpu * N]), M_cpu, N);
-          local_t = csecond() - local_t;
-          ctrl->transpose_t += local_t;
-          ldC = M_cpu;
-        }
-        local_t = csecond();
-        C_T = (double *)pin_malloc(M_gpu * N * sizeof(double));
-        C_buffer = C_T;
-        local_t = csecond() - local_t;
-        ctrl->pin_alloc_t += local_t;
-        local_t = csecond();
-        Dtranspose(C_T, C, M_gpu, N);
-        local_t = csecond() - local_t;
-        ctrl->transpose_t += local_t;
-        local_t = csecond();
-        C_gpu = Dvec_transfer_gpu(C_T, M_gpu * N);
-        local_t = csecond() - local_t;
-        ctrl->scatter_t += local_t;
-      } else if (ctrl->C_mem == COL_MAJOR) {
-        if (pred->cblas_target == CblasRowMajor) error("hybrid_dgemm_Msplit ->
-  pred->cblas_target == CblasRowMajor and " "pred->C_mem == COL_MAJOR -> Mode
-  not allowed."); else if (pred->cblas_target == CblasColMajor) { C_cpu =
-  &(C[M_gpu]); ldC = M;
-        }
-        local_t = csecond();
-        C_gpu = Dvec_chunk_transfer_gpu(C, N, M_gpu, M);
-        local_t = csecond() - local_t;
-        ctrl->scatter_t += local_t;
-      }
-
-    } else if (pred->Cadd_device_id == 0) {
-
-          cpu_beta = beta;
-      local_t = csecond();
-      C_gpu = (double *)gpu_malloc(M_gpu * N * sizeof(double));
-      C_buffer = (double *)pin_malloc(M_gpu * N * sizeof(double));
-      local_t = csecond() - local_t;
-              ctrl->pin_alloc_t += local_t;
-
-          switch (ctrl->C_mem) {
-            case (ROW_MAJOR):
-        if (pred->cblas_target == CblasRowMajor) {
-          C_cpu = &(C[M_gpu * N]);
-          ldC = N;
-        } else if (pred->cblas_target == CblasColMajor) {
-          local_t = csecond();
-          C_cpu = (double *)pin_malloc(M_cpu * N * sizeof(double));
-          local_t = csecond() - local_t;
-          ctrl->pin_alloc_t += local_t;
-          local_t = csecond();
-          Dtranspose(C_cpu, &(C[M_gpu * N]), M_cpu, N);
-          local_t = csecond() - local_t;
-          ctrl->transpose_t += local_t;
-          ldC = M_cpu;
-        }
-              break;
-            case (COL_MAJOR):
-        if (pred->cblas_target == CblasRowMajor) error("hybrid_dgemm_Msplit ->
-  pred->cblas_target == CblasRowMajor and " "pred->C_mem == COL_MAJOR -> Mode
-  not allowed"); else if (pred->cblas_target == CblasColMajor) {
-  error("hybrid_dgemm_Msplit -> pred->cblas_target == CblasColMajor and "
-            "pred->C_mem == COL_MAJOR and pred->Cadd_device_id == 0 -> Mode not
-  allowed");
-        }
-              break;
-            default:
-              error("hybrid_dgemm_Msplit -> A Unknown mem type");
-          }
-
-    } else if (pred->Cadd_device_id == 1) {
-      error(
-          "hybrid_dgemm_Msplit -> pred->Cadd_device_id == 1 Unimplemented.");
-    }
-  */
 
   if (!ldA || !ldB || !ldC || !d_ldA || !d_ldB || !d_ldC)
-    error("hybrid_dgemm_Msplit -> Some ld_dim were not defined correctly (=0)");
+    error("hybrid_dgemm_Nsplit -> Some ld_dim were not defined correctly (=0)");
 
   gpu_timer_start(cuda_timer);
 
@@ -829,13 +661,23 @@ double *hybrid_dgemm_Nsplit(control_p ctrl, predict_p pred, size_t M, size_t N,
 
   if (pred->Cadd_device_id == 0) {
     local_t = csecond();
-    cblas_dscal(N_gpu * M, beta, C, 1);
+    switch (ctrl->C_mem) {
+      case (ROW_MAJOR): 
+for (int i = 0; i<M; i++) 
+    cblas_dscal(N_gpu, beta, &C[i*N], 1);
+        break;
+      case (COL_MAJOR):
+	    cblas_dscal(N_gpu * M, beta, C, 1);
+        break;
+      default:
+        error("hybrid_dgemm_Nsplit -> A Unknown mem type");
+    }    
     local_t = csecond() - local_t;
     ctrl->reduce_t = local_t;
   }
 
   local_t = csecond();
-  cblas_dgemm(pred->cblas_target, cpu_op_A, cpu_op_B, M, N_cpu, K, alpha, A_cpu,
+  cblas_dgemm(cblas_target, cpu_op_A, cpu_op_B, M, N_cpu, K, alpha, A_cpu,
               ldA, B_cpu, ldB, cpu_beta, C_cpu, ldC);
   local_t = csecond() - local_t;
   ctrl->cpu_ex_t = local_t;
@@ -844,57 +686,52 @@ double *hybrid_dgemm_Nsplit(control_p ctrl, predict_p pred, size_t M, size_t N,
   ctrl->gpu_ex_t = (double)gpu_timer_get(cuda_timer) / 1000;
 
   if (ctrl->C_mem == ROW_MAJOR) {
+
     local_t = csecond();
     cudaMemcpy(C_buffer, C_gpu, M * N_gpu * sizeof(double),
                cudaMemcpyDeviceToHost);
     local_t = csecond() - local_t;
     ctrl->gather_t = local_t;
-    if (pred->cblas_target == CblasRowMajor) {
       local_t = csecond();
       if (pred->Cadd_device_id == 0)
-        Dtranspose_add(C, C_buffer, N, M_gpu);
-      else
-        Dtranspose(C, C_buffer, N, M_gpu);
+        Dtranspose_stride_dest_add(C, C_buffer, N_gpu, M, N);
+      else 
+        Dtranspose_stride_dest(C, C_buffer, N_gpu, M, N);
       local_t = csecond() - local_t;
       ctrl->transpose_t += local_t;
-    } else if (pred->cblas_target == CblasColMajor) {
-      local_t = csecond();
-      if (pred->Cadd_device_id == 0)
-        Dtranspose_add(C, C_buffer, N, M_gpu);
-      else
-        Dtranspose(C, C_buffer, N, M_gpu);
-      Dtranspose(&C[N * M_gpu], C_cpu, N, M_cpu);
-      local_t = csecond() - local_t;
-      ctrl->transpose_t += local_t;
-    }
+
   } else if (ctrl->C_mem == COL_MAJOR) {
-    if (pred->cblas_target == CblasRowMajor) {
-      error("Should be thrown earlier(?)");
-    }
-    if (pred->cblas_target == CblasColMajor) {
       local_t = csecond();
-      Dvec_chunk_copy_from_gpu(C, C_gpu, N, M_gpu, M);
+ if (pred->Cadd_device_id == 0){
+    cudaMemcpy(C_buffer, C_gpu, M * N_gpu * sizeof(double),
+               cudaMemcpyDeviceToHost);
+    cblas_daxpy(M*N_gpu, 1.0, C_buffer, 1, C, 1);
+}
+else
+    cudaMemcpy(C, C_gpu, M * N_gpu * sizeof(double),
+               cudaMemcpyDeviceToHost);
+	
       local_t = csecond() - local_t;
       ctrl->gather_t = local_t;
-    }
-  }
+
+}
 
   printf(
       "Device overhead(M=%d, N=%d, K=%d) pin_alloc = %lf ms, scatter = %lf "
       "ms, "
       "transpose = %lf ms, gather = %lf ms, reduce = %lf ms\n",
-      M, N, K, 1000 * ctrl->pin_alloc_t, 1000 * ctrl->scatter_t,
+      M, N, K, 1000 * ctrl->alloc_t, 1000 * ctrl->scatter_t,
       1000 * ctrl->transpose_t, 1000 * ctrl->gather_t, 1000 * ctrl->reduce_t);
 
-  printf("Hybrid Sgemm(M_cpu=%d, N=%d, K=%d) CPU time = ", M_cpu, N, K);
-  report_results(ctrl->cpu_ex_t, (long)M_cpu * K * (2 * N + 1),
-                 (long)(M_cpu * K + K * N + M_cpu * N * 2) *
+  printf("Hybrid Sgemm(M=%d, N_cpu=%d, K=%d) CPU time = ", M, N_cpu, K);
+  report_results(ctrl->cpu_ex_t, (long)M * K * (2 * N_cpu + 1),
+                 (long)(M * K + K * N_cpu + M * N_cpu * 2) *
                      sizeof(double));  //(M*N+(long)M*K*(3*N+1))
   printf("\n");
 
-  printf("Hybrid Sgemm(M_gpu=%d, N=%d, K=%d) GPU time = ", M_gpu, N, K);
-  report_results(ctrl->gpu_ex_t, (long)M_gpu * K * (2 * N + 1),
-                 (long)(M_gpu * K + K * N + M_gpu * N * 2) *
+  printf("Hybrid Sgemm(M=%d, N_gpu=%d, K=%d) GPU time = ", M, N_gpu, K);
+  report_results(ctrl->gpu_ex_t, (long)M * K * (2 * N_gpu + 1),
+                 (long)(M * K + K * N_gpu + M * N_gpu * 2) *
                      sizeof(double));  //(M*N+(long)M*K*(3*N+1))
   printf("\n");
 
@@ -904,9 +741,216 @@ double *hybrid_dgemm_Nsplit(control_p ctrl, predict_p pred, size_t M, size_t N,
   gpu_free(A_gpu);
   gpu_free(B_gpu);
   gpu_free(C_gpu);
+  pin_free(C_buffer);
 
   C_out = C;
-  debug("<- hybrid_dgemm_Msplit()\n");
+  debug("<- hybrid_dgemm_Nsplit()\n");
+  return C_out;
+}
+
+double *hybrid_dgemm_Ksplit(control_p ctrl, predict_p pred, size_t M, size_t N,
+                            size_t K, double alpha, double *A, double *B,
+                            double beta, double *C) {
+  debug("-> hybrid_dgemm_Ksplit()");
+  if (ctrl->num_devices < 1)
+    error(
+        "hybrid_dgemm_Ksplit -> 0 or less devices? What are you trying to "
+        "do...");
+  else if (ctrl->num_devices > 2)
+    error(
+        "hybrid_dgemm_Ksplit -> Max 1 GPU + 1 CPU implemented (nice "
+        "try,though).");
+
+  if (pred->asynch_trans)
+    error(
+        "hybrid_dgemm_Ksplit -> asynch transactions not implemented yet "
+        "(nice try,though).");
+
+  if (!pred->K_split || pred->K_split >= K)
+    error("hybrid_dgemm_Ksplit -> Full CPU/GPU versions do not belong here");
+  if (!A) error("hybrid_dgemm_Ksplit -> A is not malloc'ed correctly");
+  if (!B) error("hybrid_dgemm_Ksplit -> B is not malloc'ed correctly");
+  if (beta != 0 && !C)
+    error("hybrid_dgemm_Ksplit -> C is not malloc'ed correctly");
+  debug(
+      "hybrid_dgemm_Ksplit -> Trying your Matrix bounds (incomming "
+      "segfaults)...");
+  double test = A[M * K - 1];
+  test = B[K * N - 1];
+  if(beta || C) test = C[M * N - 1];
+  debug("hybrid_dgemm_Ksplit -> Passed.");
+  double *C_out, local_t;
+
+  double *A_cpu, *A_gpu, *B_cpu, *B_gpu, *C_cpu, *C_gpu;
+
+  double  *C_buffer, cpu_beta = 0, gpu_beta = 0;
+
+  size_t K_gpu = pred->K_split, K_cpu = K - pred->K_split, ldA = 0, ldB = 0,
+         ldC = 0, d_ldA = 0, d_ldB = 0, d_ldC = 0;
+  cublasOperation_t gpu_op_A, gpu_op_B;  // CUBLAS_OP_N, CUBLAS_OP_T
+  CBLAS_TRANSPOSE cpu_op_A, cpu_op_B;    // CblasNoTrans, CblasTrans
+
+ CBLAS_LAYOUT cblas_target;
+  cublasHandle_t handle;
+  cublasStatus_t stat = cublasCreate(&handle);
+
+  gpu_timer_p cuda_timer = gpu_timer_init();
+
+  /// Setup A parts on host and device
+ local_t = csecond();
+  switch (ctrl->A_mem) {
+    case (ROW_MAJOR):
+      gpu_op_A = CUBLAS_OP_T;
+      d_ldA = K_gpu;
+
+        A_cpu = &(A[K_gpu]);
+        ldA = K;
+      if (ctrl->C_mem == ROW_MAJOR)
+        cpu_op_A = CblasNoTrans;
+      else if (ctrl->C_mem == COL_MAJOR) 
+        cpu_op_A = CblasTrans;
+      A_gpu = Dvec_chunk_transfer_gpu(A, M, K_gpu, K);
+      break;
+    case (COL_MAJOR):
+      A_gpu = Dvec_transfer_gpu(A, K_gpu * M);
+      gpu_op_A = CUBLAS_OP_N;
+      d_ldA = K_gpu;
+      A_cpu = &(A[K_gpu * M]);
+      ldA = K_cpu;
+      if (ctrl->C_mem == ROW_MAJOR)
+        cpu_op_A = CblasTrans;
+      else if (ctrl->C_mem == COL_MAJOR)
+        cpu_op_A = CblasNoTrans;
+      break;
+    default:
+      error("hybrid_dgemm_Ksplit -> Unreachable default reached ");
+  }
+      local_t = csecond() - local_t;
+      ctrl->scatter_t += local_t;
+
+  /// Setup B parts on host and device
+  local_t = csecond();
+  switch (ctrl->B_mem) {
+    case (ROW_MAJOR):
+      B_gpu = Dvec_transfer_gpu(B, K_gpu * N);
+      gpu_op_B = CUBLAS_OP_T;
+      d_ldB = N;
+      B_cpu = &(B[K_gpu * N]);
+      ldB = N;
+      if (ctrl->C_mem == ROW_MAJOR)
+        cpu_op_B = CblasTrans;
+      else if (ctrl->C_mem == COL_MAJOR)
+        cpu_op_B = CblasNoTrans;
+      break;
+    case (COL_MAJOR):
+      gpu_op_B = CUBLAS_OP_N;
+      d_ldB = K_gpu;
+        B_cpu = &(B[K_gpu]);
+        ldB = K;
+      if (ctrl->C_mem == ROW_MAJOR)
+        cpu_op_B = CblasNoTrans;
+      else if (ctrl->C_mem == COL_MAJOR) 
+        cpu_op_B = CblasTrans;
+      B_gpu = Dvec_chunk_transfer_gpu(B, N, K_gpu, K);
+      break;
+    default:
+      error("hybrid_dgemm_Ksplit -> Unreachable default reached ");
+  }
+      local_t = csecond() - local_t;
+      ctrl->scatter_t += local_t;
+
+  /// Setup C parts on host and device
+  d_ldC = M;
+C_buffer = (double *)pin_malloc(M * N * sizeof(double));
+C_cpu = C;
+
+  if (!beta || !pred->Cadd_device_id || pred->Cadd_device_id == -1) {
+    cpu_beta = beta;
+    local_t = csecond();
+    C_gpu = (double *)gpu_malloc(M * N * sizeof(double));
+    if (!C) C = (double *) malloc(M * N * sizeof(double));
+    local_t = csecond() - local_t;
+    ctrl->alloc_t += local_t;
+  }else if (pred->Cadd_device_id == 1) {
+    error("hybrid_dgemm_Ksplit -> pred->Cadd_device_id == 1 Unimplemented.");
+  }
+
+    if (ctrl->C_mem == ROW_MAJOR) {
+cblas_target = CblasRowMajor;
+        ldC = N;
+    } else if (ctrl->C_mem == COL_MAJOR) {
+        ldC = M;
+cblas_target = CblasColMajor;
+    }
+
+  if (!ldA || !ldB || !ldC || !d_ldA || !d_ldB || !d_ldC)
+    error("hybrid_dgemm_Ksplit -> Some ld_dim were not defined correctly (=0)");
+
+  gpu_timer_start(cuda_timer);
+
+  stat = cublasDgemm(handle, gpu_op_A, gpu_op_B, M, N, K_gpu, &alpha, A_gpu,
+                     d_ldA, B_gpu, d_ldB, &gpu_beta, C_gpu, d_ldC);
+  gpu_timer_stop(cuda_timer);
+
+  if (pred->Cadd_device_id == 0 || pred->Cadd_device_id == -1) {
+    local_t = csecond();
+	cblas_dscal(N * M, beta, C, 1);
+    local_t = csecond() - local_t;
+    ctrl->reduce_t = local_t;
+  }
+
+  local_t = csecond();
+  cblas_dgemm(cblas_target, cpu_op_A, cpu_op_B, M, N, K_cpu, alpha, A_cpu,
+              ldA, B_cpu, ldB, cpu_beta, C_cpu, ldC);  /// ERROR!!!
+  local_t = csecond() - local_t;
+  ctrl->cpu_ex_t = local_t;
+  cudaCheckErrors();
+
+  ctrl->gpu_ex_t = (double)gpu_timer_get(cuda_timer) / 1000;
+
+    local_t = csecond();
+    cudaMemcpy(C_buffer, C_gpu, M * N * sizeof(double),
+               cudaMemcpyDeviceToHost);
+    local_t = csecond() - local_t;
+    ctrl->gather_t = local_t;
+
+      local_t = csecond();
+       if (ctrl->C_mem == ROW_MAJOR)
+        Dtranspose_add(C, C_buffer, N, M);
+      else if (ctrl->C_mem == COL_MAJOR) 
+        cblas_daxpy(M*N, 1.0, C_buffer, 1, C, 1);
+      local_t = csecond() - local_t;
+      ctrl->transpose_t += local_t;
+
+  printf(
+      "Device overhead(M=%d, N=%d, K=%d) pin_alloc = %lf ms, scatter = %lf "
+      "ms, "
+      "transpose = %lf ms, gather = %lf ms, reduce = %lf ms\n",
+      M, N, K, 1000 * ctrl->alloc_t, 1000 * ctrl->scatter_t,
+      1000 * ctrl->transpose_t, 1000 * ctrl->gather_t, 1000 * ctrl->reduce_t);
+
+  printf("Hybrid Sgemm(M=%d, N=%d, K_cpu=%d) CPU time = ", M, N, K_cpu);
+  report_results(ctrl->cpu_ex_t, (long)M * K_cpu * (2 * N + 1),
+                 (long)(M * K_cpu + K_cpu * N + M * N * 2) *
+                     sizeof(double));  //(M*N+(long)M*K*(3*N+1))
+  printf("\n");
+
+  printf("Hybrid Sgemm(M=%d, N=%d, K_gpu=%d) GPU time = ", M, N, K_gpu);
+  report_results(ctrl->gpu_ex_t, (long)M * K_gpu * (2 * N + 1),
+                 (long)(M * K_gpu + K_gpu * N + M * N * 2) *
+                     sizeof(double));  //(M*N+(long)M*K*(3*N+1))
+  printf("\n");
+
+  // pin_free(C_buffer);
+
+  // FIXME: implement correct frees with switches
+  gpu_free(A_gpu);
+  gpu_free(B_gpu);
+  gpu_free(C_gpu);
+  pin_free(C_buffer);
+
+  C_out = C;
+  debug("<- hybrid_dgemm_Ksplit()\n");
   return C_out;
 }
 
@@ -966,7 +1010,7 @@ int main(const int argc, const char *argv[]) {
 
   int ctr = 1;
   switch (argc) {
-    case (14):
+    case (13):
       M = atoi(argv[ctr++]);
       N = atoi(argv[ctr++]);
       K = atoi(argv[ctr++]);
@@ -983,21 +1027,19 @@ int main(const int argc, const char *argv[]) {
       else
         main_ctrl->C_mem = ROW_MAJOR;
       alpha = atof(argv[ctr++]);
-    case (7):
+    case (6):
       beta = atof(argv[ctr++]);
       main_pred->Cadd_device_id = atoi(argv[ctr++]);
-    case (5):
+    case (4):
       main_pred->M_split = atoi(argv[ctr++]);
       main_pred->N_split = atoi(argv[ctr++]);
       main_pred->K_split = atoi(argv[ctr++]);
-      if (atoi(argv[ctr++]))
-        main_pred->cblas_target = CblasColMajor;
-      else
-        main_pred->cblas_target = CblasRowMajor;
       break;
     default:
       error("Incorrect input arguments");
   }
+
+  main_ctrl->alloc_t = main_ctrl->scatter_t = main_ctrl->transpose_t = main_ctrl->cpu_ex_t = main_ctrl->gpu_ex_t = main_ctrl->gather_t = main_ctrl->reduce_t = 0;
 
   printf("\nMatrix details: A(%s) B(%s) C(%s) -> M = %d, N = %d, K = %d\n",
          print_mem(main_ctrl->A_mem), print_mem(main_ctrl->B_mem),
@@ -1005,9 +1047,9 @@ int main(const int argc, const char *argv[]) {
   printf("Constants: alpha = %lf, beta = %lf\n", alpha, beta);
   printf(
       "Predicted values: M_split = %d, N_split = %d, K_split = %d Cadd_device "
-      "= %d, cblas_target = %d\n\n",
+      "= %d\n\n",
       main_pred->M_split, main_pred->N_split, main_pred->K_split,
-      main_pred->Cadd_device_id, atoi(argv[ctr - 1]));
+      main_pred->Cadd_device_id);
   double transpose_timer, cpu_timer = csecond();
   float gpu_preproc_t = 0, gpu_comp_t = 0, gpu_reduce_t = 0;
   gpu_timer_p cuda_timer = gpu_timer_init();
@@ -1166,7 +1208,7 @@ int main(const int argc, const char *argv[]) {
 
       printf("Total Sgemm(M=%d, N=%d, K=%d) ", M, N, K);
       report_results(fmax(main_ctrl->cpu_ex_t, main_ctrl->gpu_ex_t) +
-                         main_ctrl->scatter_t + main_ctrl->pin_alloc_t +
+                         main_ctrl->scatter_t + main_ctrl->alloc_t +
                          main_ctrl->transpose_t + main_ctrl->gather_t +
                          main_ctrl->reduce_t,
                      (long)M * K * (2 * N + 1),
@@ -1182,7 +1224,7 @@ int main(const int argc, const char *argv[]) {
 
       printf("Total Sgemm(M=%d, N=%d, K=%d) ", M, N, K);
       report_results(fmax(main_ctrl->cpu_ex_t, main_ctrl->gpu_ex_t) +
-                         main_ctrl->scatter_t + main_ctrl->pin_alloc_t +
+                         main_ctrl->scatter_t + main_ctrl->alloc_t +
                          main_ctrl->transpose_t + main_ctrl->gather_t +
                          main_ctrl->reduce_t,
                      (long)M * K * (2 * N + 1),
@@ -1198,7 +1240,7 @@ int main(const int argc, const char *argv[]) {
 
       printf("Total Sgemm(M=%d, N=%d, K=%d) ", M, N, K);
       report_results(fmax(main_ctrl->cpu_ex_t, main_ctrl->gpu_ex_t) +
-                         main_ctrl->scatter_t + main_ctrl->pin_alloc_t +
+                         main_ctrl->scatter_t + main_ctrl->alloc_t +
                          main_ctrl->transpose_t + main_ctrl->gather_t +
                          main_ctrl->reduce_t,
                      (long)M * K * (2 * N + 1),
@@ -1214,7 +1256,7 @@ int main(const int argc, const char *argv[]) {
 
       printf("Total Sgemm(M=%d, N=%d, K=%d) ", M, N, K);
       report_results(fmax(main_ctrl->cpu_ex_t, main_ctrl->gpu_ex_t) +
-                         main_ctrl->scatter_t + main_ctrl->pin_alloc_t +
+                         main_ctrl->scatter_t + main_ctrl->alloc_t +
                          main_ctrl->transpose_t + main_ctrl->gather_t +
                          main_ctrl->reduce_t,
                      (long)M * K * (2 * N + 1),
@@ -1225,251 +1267,49 @@ int main(const int argc, const char *argv[]) {
       Dtest_equality(C_comp, C, M * N);
     }
   }
+  else if (main_pred->K_split) {
+    if (main_pred->K_split == K) {
+      C = gpu_dgemm(main_ctrl, main_pred, M, N, K, alpha, A, B, beta, C);
 
-  /*
-          debug("executing hybrid GPU-CPU (N)");
-          size_t N_gpu = N_split, N_cpu = N - N_split;
-          if (ghost_beta) {
-            debug("executing with ghost_beta !=0");
+      printf("Total Sgemm(M=%d, N=%d, K=%d) ", M, N, K);
+      report_results(fmax(main_ctrl->cpu_ex_t, main_ctrl->gpu_ex_t) +
+                         main_ctrl->scatter_t + main_ctrl->alloc_t +
+                         main_ctrl->transpose_t + main_ctrl->gather_t +
+                         main_ctrl->reduce_t,
+                     (long)M * K * (2 * N + 1),
+                     (long)(M * K + K * N + M * N * 2) *
+                         sizeof(double));  //(M*N+(long)M*K*(3*N+1))
+      printf("\n");
 
-            transpose_timer = csecond();
-            double *B_T = (double *)pin_malloc(K * N * sizeof(double));
-            Dtranspose(B_T, B, K, N);
-            double *C_T = (double *)pin_malloc(M * N * sizeof(double));
-            Dtranspose(C_T, C, M, N);
-            transpose_timer = csecond() - transpose_timer;
+      Dtest_equality(C_comp, C, M * N);
 
-            gpu_timer_start(cuda_timer);
-            d_A = Dvec_transfer_gpu(A, M * K);
-            d_B = Dvec_transfer_gpu(B_T, K * N_gpu);
-            d_C = Dvec_transfer_gpu(C_T, M * N_gpu);
-            gpu_timer_stop(cuda_timer);
-            gpu_preproc_t = gpu_timer_get(cuda_timer);
+    } else {
+      C = hybrid_dgemm_Ksplit(main_ctrl, main_pred, M, N, K, alpha, A, B, beta,
+                              C);
 
-            gpu_timer_start(cuda_timer);
+      printf("Total Sgemm(M=%d, N=%d, K=%d) ", M, N, K);
+      report_results(fmax(main_ctrl->cpu_ex_t, main_ctrl->gpu_ex_t) +
+                         main_ctrl->scatter_t + main_ctrl->alloc_t +
+                         main_ctrl->transpose_t + main_ctrl->gather_t +
+                         main_ctrl->reduce_t,
+                     (long)M * K * (2 * N + 1),
+                     (long)(M * K + K * N + M * N * 2) *
+                         sizeof(double));  //(M*N+(long)M*K*(3*N+1))
+      printf("\n");
 
-            stat = cublasDgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N, M, N_gpu, K,
-                               &alpha, d_A, K, d_B, K, &beta, d_C, M);
-            cpu_timer = csecond();
-            cblas_dgemm(CblasColMajor, CblasTrans, CblasNoTrans, M, N_cpu, K,
-      alpha, A, K, &(B_T[N_gpu * K]), K, beta, &(C_T[M * N_gpu]), M); cpu_timer
-  = csecond() - cpu_timer; cudaCheckErrors();
-
-            gpu_timer_stop(cuda_timer);
-            gpu_comp_t = gpu_timer_get(cuda_timer);
-            gpu_timer_start(cuda_timer);
-            cudaMemcpy(C_T, d_C, M * N_gpu * sizeof(double),
-                       cudaMemcpyDeviceToHost);
-            gpu_timer_stop(cuda_timer);
-            gpu_reduce_t = gpu_timer_get(cuda_timer);
-
-            transpose_timer = csecond() - transpose_timer;
-            Dtranspose(C, C_T, N, M);
-            transpose_timer = csecond() - transpose_timer;
-
-            printf(
-                "Device overhead(M=%d, N=%d, K=%d) transpose = %lf ms, t_preproc
-  "
-                "= "
-                "%lf ms, t_reduce = %lf ms\n",
-                M, N, K, 1000 * transpose_timer, gpu_preproc_t, gpu_reduce_t);
-
-            printf("Hybrid Sgemm(M=%d, N_cpu=%d, K=%d) CPU time = ", M, N_cpu,
-  K); report_results((double)cpu_timer, (long)M * K * (2 * N_cpu + 1), (long)(M
-  * K + K * N_cpu + M * N_cpu * 2) * sizeof(double));  //(M*N+(long)M*K*(3*N+1))
-            printf("\n");
-
-            printf("Total Sgemm(M=%d, N=%d, K=%d) ", M, N, K);
-            report_results((double)gpu_comp_t / 1000.0 + transpose_timer +
-                               (double)gpu_preproc_t / 1000 +
-                               (double)gpu_reduce_t / 1000,
-                           (long)M * K * (2 * N + 1),
-                           (long)(M * K + K * N + M * N * 2) *
-                               sizeof(double));  //(M*N+(long)M*K*(3*N+1))
-            printf("\n");
-
-            Dtest_equality(C_comp, C, M * N);
-
-            gpu_free(d_A);
-            gpu_free(d_B);
-            gpu_free(d_C);
-            pin_free(B_T);
-            pin_free(C_T);
-          } else {
-            debug("executing with ghost_beta = 0");
-            gpu_timer_start(cuda_timer);
-            double dev_beta = 0.0;
-
-            transpose_timer = csecond();
-            double *B_T = (double *)pin_malloc(K * N * sizeof(double));
-            Dtranspose(B_T, B, K, N);
-            double *C_T = (double *)pin_malloc(M * N * sizeof(double));
-            Dtranspose(C_T, C, M, N);
-            transpose_timer = csecond() - transpose_timer;
-
-            gpu_timer_start(cuda_timer);
-            d_A = Dvec_transfer_gpu(A, M * K);
-            d_B = Dvec_transfer_gpu(B_T, K * N_gpu);
-            d_C = (double *)gpu_malloc(M * N_gpu * sizeof(double));
-            gpu_timer_stop(cuda_timer);
-            gpu_preproc_t = gpu_timer_get(cuda_timer);
-
-            cublasHandle_t handle;
-            cublasStatus_t stat = cublasCreate(&handle);
-            // cublasSetStream(handle, stream1);
-            gpu_timer_start(cuda_timer);
-
-            stat = cublasDgemm(handle, CUBLAS_OP_T, CUBLAS_OP_N, M, N_gpu, K,
-                               &alpha, d_A, K, d_B, K, &dev_beta, d_C, M);
-            cblas_dscal(M * N, beta, C, 1);
-            cpu_timer = csecond();
-            cblas_dgemm(CblasColMajor, CblasTrans, CblasNoTrans, M, N_cpu, K,
-      alpha, A, K, &(B_T[N_gpu * K]), K, 0.0, &(C_T[M * N_gpu]), M); cpu_timer =
-      csecond() - cpu_timer; cudaCheckErrors();
-
-            gpu_timer_stop(cuda_timer);
-            gpu_comp_t = gpu_timer_get(cuda_timer);
-            gpu_timer_start(cuda_timer);
-            cudaMemcpy(C_T, d_C, M * N_gpu * sizeof(double),
-                       cudaMemcpyDeviceToHost);
-            gpu_timer_stop(cuda_timer);
-            gpu_reduce_t = gpu_timer_get(cuda_timer);
-
-            transpose_timer = csecond() - transpose_timer;
-            Dtranspose_add(C, C_T, N, M);
-            transpose_timer = csecond() - transpose_timer;
-
-            printf(
-                "Device overhead(M=%d, N=%d, K=%d) transpose = %lf ms, t_preproc
-  "
-                "= "
-                "%lf ms, t_reduce = %lf ms\n",
-                M, N, K, 1000 * transpose_timer, gpu_preproc_t, gpu_reduce_t);
-
-            printf("Hybrid Sgemm(M=%d, N_cpu=%d, K=%d) CPU time = ", M, N_cpu,
-  K); report_results((double)cpu_timer, (long)M * K * (2 * N_cpu + 1), (long)(M
-  * K + K * N_cpu + M * N_cpu * 2) * sizeof(double));  //(M*N+(long)M*K*(3*N+1))
-            printf("\n");
-
-            printf("Total Sgemm(M=%d, N=%d, K=%d) ", M, N, K);
-            report_results((double)gpu_comp_t / 1000.0 + transpose_timer +
-                               (double)gpu_preproc_t / 1000 +
-                               (double)gpu_reduce_t / 1000,
-                           (long)M * K * (2 * N + 1),
-                           (long)(M * K + K * N + M * N * 2) *
-                               sizeof(double));  //(M*N+(long)M*K*(3*N+1))
-            printf("\n");
-
-            Dtest_equality(C_comp, C, M * N);
-
-            gpu_free(d_A);
-            gpu_free(d_B);
-            gpu_free(d_C);
-            pin_free(B_T);
-            pin_free(C_T);
-          }
-        }
-      }
-
-  else if (K_split) {
-        if (K_split == K) {
-          debug("executing solely on GPU but with Κ spliting (?)");
-          debug("Not gonna copy the same code, a goto is preffered");
-          K_split = 0;
-          M_split = M;
-          goto return_point;
-        } else {
-          debug("executing hybrid GPU-CPU (K)");
-          size_t K_gpu = K_split, K_cpu = K - K_split;
-          if (ghost_beta) {
-            debug("executing with ghost_beta !=0");
-            debug("...you would think but that would calculate C = aAB + 2bC");
-            debug("our friend goto will save us");
-            goto just_bellow;
-          } else {
-          just_bellow:
-            debug("executing with ghost_beta = 0");
-            gpu_timer_start(cuda_timer);
-            double dev_beta = 0.0;
-
-            transpose_timer = csecond();
-            double *A_T = (double *)pin_malloc(M * K * sizeof(double));
-            Dtranspose(A_T, A, M, K);
-            double *reduce_C;
-            transpose_timer = csecond() - transpose_timer;
-
-            gpu_timer_start(cuda_timer);
-            d_A = Dvec_transfer_gpu(A_T, M * K_gpu);
-            d_B = Dvec_transfer_gpu(B, K_gpu * N);
-            d_C = (double *)gpu_malloc(M * N * sizeof(double));
-            gpu_timer_stop(cuda_timer);
-            gpu_preproc_t = gpu_timer_get(cuda_timer);
-
-            gpu_timer_start(cuda_timer);
-
-            stat = cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, M, N, K_gpu,
-                               &alpha, d_A, M, d_B, N, &dev_beta, d_C, M);
-            reduce_C = (double *)pin_malloc(M * N * sizeof(double));
-            cpu_timer = csecond();
-            cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans, M, N, K_cpu,
-      alpha,
-                        &(A_T[M * K_gpu]), M, &(B[N * K_gpu]), N, beta, C, N);
-            cpu_timer = csecond() - cpu_timer;
-            cudaCheckErrors();
-
-            gpu_timer_stop(cuda_timer);
-            gpu_comp_t = gpu_timer_get(cuda_timer);
-            gpu_timer_start(cuda_timer);
-            cudaMemcpy(reduce_C, d_C, M * N * sizeof(double),
-                       cudaMemcpyDeviceToHost);
-            gpu_timer_stop(cuda_timer);
-            gpu_reduce_t = gpu_timer_get(cuda_timer);
-
-            transpose_timer = csecond() - transpose_timer;
-            Dtranspose_add(C, reduce_C, N, M);
-            transpose_timer = csecond() - transpose_timer;
-
-            printf(
-                "Device overhead(M=%d, N=%d, K=%d) transpose = %lf ms, t_preproc
-  "
-                "= "
-                "%lf ms, t_reduce = %lf ms\n",
-                M, N, K, 1000 * transpose_timer, gpu_preproc_t, gpu_reduce_t);
-
-            printf("Hybrid Sgemm(M=%d, N=%d, K_cpu=%d) CPU time = ", M, N,
-  K_cpu); report_results((double)cpu_timer, (long)M * K_cpu * (2 * N + 1),
-                           (long)(M * K_cpu + K_cpu * N + M * N * 2) *
-                               sizeof(double));  //(M*N+(long)M*K_cpu*(3*N+1))
-            printf("\n");
-
-            printf("Total Sgemm(M=%d, N=%d, K=%d) ", M, N, K);
-            report_results((double)gpu_comp_t / 1000.0 + transpose_timer +
-                               (double)gpu_preproc_t / 1000 +
-                               (double)gpu_reduce_t / 1000,
-                           (long)M * K * (2 * N + 1),
-                           (long)(M * K + K * N + M * N * 2) *
-                               sizeof(double));  //(M*N+(long)M*K*(3*N+1))
-            printf("\n");
-
-            Dtest_equality(C_comp, C, M * N);
-
-            gpu_free(d_A);
-            gpu_free(d_B);
-            gpu_free(d_C);
-            pin_free(A_T);
-            pin_free(reduce_C);
-          }
-        }
-      } else {
+      Dtest_equality(C_comp, C, M * N);
+    }
+  }
+ else {
         debug("Not spliting at all, execute the whole on host");
 
         cpu_timer = csecond();
         cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, M, N, K, alpha,
-  A, K, B, N, beta, C, N); cpu_timer = csecond() - cpu_timer; printf("MKL
-      Sgemm(M=%d, N=%d, K=%d) ", M, N, K); report_results(cpu_timer, (long)M * K
-  * (2 * N + 1), (long)(M * K + K * N + M * N * 2) * sizeof(double));
+  A, K, B, N, beta, C, N); 
+cpu_timer = csecond() - cpu_timer; 
+printf("MKL Sgemm(M=%d, N=%d, K=%d) ", M, N, K); report_results(cpu_timer, (long)M * K * (2 * N + 1), (long)(M * K + K * N + M * N * 2) * sizeof(double));
         printf("\n");
         Dtest_equality(C_comp, C, M * N);
       }
-    */
+    
 }
