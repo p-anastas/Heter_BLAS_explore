@@ -54,8 +54,8 @@ message( "My header files: " ${CMAKE_CURRENT_SOURCE_DIR}/inc )
 file(GLOB SOURCE_FILES ${PROJECT_SOURCE_DIR}/*.c* )
 message( "SOURCE_FILES: " ${SOURCE_FILES} )
 
-add_executable (Zawardo ${SOURCE_FILES})
+add_executable (dgemm_runner ${SOURCE_FILES})
 
 set (LINK_LIB "${INTEL_LINK} ${MAGMA_LINK} ${MKL_LINK} ${CUDA_LINK} -lrt -ldl")
 message( "LINK_LIB: " ${LINK_LIB} )
-target_link_libraries(Zawardo ${LINK_LIB})
+target_link_libraries(dgemm_runner ${LINK_LIB})

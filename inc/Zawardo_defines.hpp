@@ -7,6 +7,6 @@
 #define ZAWARDO_DEFINES_H
 
 #define NR_ITER 1
-#define DEBUG
+//#define DEBUG
 
 #endif

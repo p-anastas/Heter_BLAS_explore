@@ -13,13 +13,13 @@
 
 void debug(char* string) {
 #ifdef DEBUG
-  printf("DEBUG: %s\n", string);
+  fprintf(stderr,"DEBUG: %s\n", string);
 #endif
 }
 
 void massert(bool condi, const char* msg) {
   if (!condi) {
-    printf("Error: %s\n", msg);
+    fprintf(stderr,"Error: %s\n", msg);
     exit(1);
   }
 }
@@ -41,10 +41,10 @@ double csecond(void) {
   return ((double)micros / 1000000.0);
 }
 
-void warning(char* string) { printf("WARNING ( %s )\n", string); }
+void warning(char* string) { fprintf(stderr,"WARNING ( %s )\n", string); }
 
 void error(char* string) {
-  printf("ERROR ( %s ) halting execution\n", string);
+  fprintf(stderr,"ERROR ( %s ) halting execution\n", string);
   exit(1);
 }
 
@@ -52,14 +52,14 @@ void report_results(double timer, long flops, long bytes) {
   double time = timer / NR_ITER;
   double Gflops = flops / (time * 1e9);
   double Gbytes = bytes / (time * 1e9);
-  printf("%lf ms ( %.2lf Gflops/s %.2lf Gbytes/s)", 1000.0 * time, Gflops,
+  fprintf(stderr,"%lf ms ( %.2lf Gflops/s %.2lf Gbytes/s)", 1000.0 * time, Gflops,
          Gbytes);
 }
 
 void report_bandwidth(double timer, size_t bytes) {
   double time = timer / NR_ITER;
   double Gbytes = bytes / (time * 1e9);
-  printf("%lf ms ( %.2lf Gbytes/s)", 1000.0 * time, Gbytes);
+  fprintf(stderr,"%lf ms ( %.2lf Gbytes/s)", 1000.0 * time, Gbytes);
 }
 
 double Drandom(double min, double max) {
@@ -171,13 +171,13 @@ void Dtest_equality(double* C_comp, double* C, size_t size) {
     failed = Dvec_diff(C_comp, C, size, eps);
   }
   if (!acc) {
-    printf("Test failed %d times\n", failed);
+    fprintf(stderr,"Test failed %d times\n", failed);
   } else
-    printf("Test passed(Accuracy= %d digits, %d/%d breaking for %d)\n", acc,
+    fprintf(stderr,"Test passed(Accuracy= %d digits, %d/%d breaking for %d)\n", acc,
            failed, size, acc + 1);
   for (int i = 0; i < 10; i++)
     if (!Dequals(C_comp[i], C[i], eps))
-      printf("CPU vs GPU: %.15lf vs %.15lf\n", C_comp[i], C[i]);
+      fprintf(stderr,"CPU vs GPU: %.15lf vs %.15lf\n", C_comp[i], C[i]);
 }
 
 void Dtranspose(double* buffer, double* vec, size_t dim1, size_t dim2) {
