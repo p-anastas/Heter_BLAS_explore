@@ -556,7 +556,6 @@ double *hybrid_dgemm_Nsplit(control_p ctrl, predict_p pred, size_t M, size_t N,
     case (ROW_MAJOR):
       gpu_op_B = CUBLAS_OP_T;
       d_ldB = N_gpu;
-
         B_cpu = &(B[N_gpu]);
         ldB = N;
       if (ctrl->C_mem == ROW_MAJOR)

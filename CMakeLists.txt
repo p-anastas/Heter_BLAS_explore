@@ -2,10 +2,12 @@ cmake_minimum_required (VERSION 3.10)
 #set(CMAKE_VERBOSE_MAKEFILE on)
 set ( CMAKE_CUDA_COMPILER "/usr/local/cuda/bin/nvcc" )
 set ( CMAKE_CXX_COMPILER  "/opt/intel/bin/icc" )
-project (MatrixSplit LANGUAGES CXX CUDA)
+project (Zawardo C CXX CUDA)
 
+set ( PROJECT_LIB_DIR ${PROJECT_SOURCE_DIR}/lib )
 set ( PROJECT_SOURCE_DIR ${PROJECT_SOURCE_DIR}/src )
 message( "PROJECT_SOURCE_DIR: " ${PROJECT_SOURCE_DIR} )
+message( "PROJECT_LIB_DIR: " ${PROJECT_LIB_DIR} )
 message( "PROJECT_BINARY_DIR: " ${PROJECT_BINARY_DIR} )
 message( "CMAKE_CURRENT_SOURCE_DIR: " ${CMAKE_CURRENT_SOURCE_DIR} )
 message( "CMAKE_CURRENT_BINARY_DIR: " ${CMAKE_CURRENT_BINARY_DIR} )
@@ -46,16 +48,24 @@ set (INTEL_LD ${INTEL_PREFIX}/lib/intel64)
 set (INTEL_LINK  "-L${INTEL_LD} -xHost" )
 message( "INTEL_LINK: " ${INTEL_LINK} )
 
+
+
+
+file(GLOB LIBFILES ${PROJECT_LIB_DIR}/*.c* )
+
 # My header files 
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/inc)
 message( "My header files: " ${CMAKE_CURRENT_SOURCE_DIR}/inc )
 
 
-file(GLOB SOURCE_FILES ${PROJECT_SOURCE_DIR}/*.c* )
-message( "SOURCE_FILES: " ${SOURCE_FILES} )
+add_library(MyLib ${LIBFILES})
+message( "MyLib: " ${MyLib} )
 
-add_executable (dgemm_runner ${SOURCE_FILES})
+add_executable (dgemm_runner ${PROJECT_SOURCE_DIR}/dgemm_runner.cu )
+add_executable (daxpy_benchmark ${PROJECT_SOURCE_DIR}/daxpy_benchmark.cpp)
 
 set (LINK_LIB "${INTEL_LINK} ${MAGMA_LINK} ${MKL_LINK} ${CUDA_LINK} -lrt -ldl")
-message( "LINK_LIB: " ${LINK_LIB} )
-target_link_libraries(dgemm_runner ${LINK_LIB})
+message( "LINK_LIB: " ${LINK_LIB})
+target_link_libraries(dgemm_runner ${LINK_LIB} MyLib)
+target_link_libraries(daxpy_benchmark ${LINK_LIB} MyLib)
+
