@@ -15,19 +15,14 @@ int main(const int argc, const char *argv[]) {
 
   double alpha;
 
-  size_t N, itterations = 1, incx, incy;
+  size_t N, M, itterations = 1;
 
-  N = 300;
-  alpha = 1.1;
-  incx = incy = 1;
+  N = M = 300;
 
   switch (argc) {
-    case (5):
-      incx = atoi(argv[3]);
-      incy = atoi(argv[4]);
     case (3):
       N = atoi(argv[1]);
-      alpha = atof(argv[2]);
+      M = atoi(argv[2]);
       break;
     default:
       error("Incorrect input arguments");
@@ -38,16 +33,16 @@ int main(const int argc, const char *argv[]) {
 
   double *x, *y;
 
-  x = Dvec_init_pinned(N, 42);
-  y = Dvec_init_pinned(N, 0);
+  x = Dvec_init_pinned(N*M, 42);
+  y = Dvec_init_pinned(N*M, 0);
 
   itterations = 10;
-  fprintf(stdout,"%d,%lf,%d,%d,",  N, alpha, incx, incy);
+  fprintf(stdout,"%d,%d,",  N, M);
 
 total_t = csecond();
-for (int it = 0; it < itterations; it++) cblas_daxpy (N, alpha, x, incx, y, incy);
+for (int it = 0; it < itterations; it++) Dtranspose(y, x, N, M);
 total_t = csecond() - total_t;
-fprintf(stderr, "daxpy(%d) benchmarked sucsessfully t = %lf ms ( %.15lf s/double)\n", N, total_t*1000/itterations, total_t/N/itterations);
+fprintf(stderr, "transpose(%d,%d) benchmarked sucsessfully t = %lf ms ( %.15lf s/double)\n", N, M, total_t*1000/itterations, total_t/N*M/itterations);
 fprintf(stdout,"%.15lf\n", total_t/itterations);
  return 0;
 }
