@@ -13,13 +13,13 @@
 
 void debug(char* string) {
 #ifdef DEBUG
-  fprintf(stderr,"DEBUG: %s\n", string);
+  fprintf(stderr, "DEBUG: %s\n", string);
 #endif
 }
 
 void massert(bool condi, const char* msg) {
   if (!condi) {
-    fprintf(stderr,"Error: %s\n", msg);
+    fprintf(stderr, "Error: %s\n", msg);
     exit(1);
   }
 }
@@ -41,10 +41,10 @@ double csecond(void) {
   return ((double)micros / 1000000.0);
 }
 
-void warning(char* string) { fprintf(stderr,"WARNING ( %s )\n", string); }
+void warning(char* string) { fprintf(stderr, "WARNING ( %s )\n", string); }
 
 void error(char* string) {
-  fprintf(stderr,"ERROR ( %s ) halting execution\n", string);
+  fprintf(stderr, "ERROR ( %s ) halting execution\n", string);
   exit(1);
 }
 
@@ -52,14 +52,14 @@ void report_results(double timer, long flops, long bytes) {
   double time = timer / NR_ITER;
   double Gflops = flops / (time * 1e9);
   double Gbytes = bytes / (time * 1e9);
-  fprintf(stderr,"%lf ms ( %.2lf Gflops/s %.2lf Gbytes/s)", 1000.0 * time, Gflops,
-         Gbytes);
+  fprintf(stderr, "%lf ms ( %.2lf Gflops/s %.2lf Gbytes/s)", 1000.0 * time,
+          Gflops, Gbytes);
 }
 
 void report_bandwidth(double timer, size_t bytes) {
   double time = timer / NR_ITER;
   double Gbytes = bytes / (time * 1e9);
-  fprintf(stderr,"%lf ms ( %.2lf Gbytes/s)", 1000.0 * time, Gbytes);
+  fprintf(stderr, "%lf ms ( %.2lf Gbytes/s)", 1000.0 * time, Gbytes);
 }
 
 double Drandom(double min, double max) {
@@ -171,13 +171,13 @@ void Dtest_equality(double* C_comp, double* C, size_t size) {
     failed = Dvec_diff(C_comp, C, size, eps);
   }
   if (!acc) {
-    fprintf(stderr,"Test failed %d times\n", failed);
+    fprintf(stderr, "Test failed %d times\n", failed);
   } else
-    fprintf(stderr,"Test passed(Accuracy= %d digits, %d/%d breaking for %d)\n", acc,
-           failed, size, acc + 1);
+    fprintf(stderr, "Test passed(Accuracy= %d digits, %d/%d breaking for %d)\n",
+            acc, failed, size, acc + 1);
   for (int i = 0; i < 10; i++)
     if (!Dequals(C_comp[i], C[i], eps))
-      fprintf(stderr,"CPU vs GPU: %.15lf vs %.15lf\n", C_comp[i], C[i]);
+      fprintf(stderr, "CPU vs GPU: %.15lf vs %.15lf\n", C_comp[i], C[i]);
 }
 
 void Dtranspose(double* buffer, double* vec, size_t dim1, size_t dim2) {
@@ -189,21 +189,25 @@ void Dtranspose(double* buffer, double* vec, size_t dim1, size_t dim2) {
   }
 }
 
-void Dtranspose_stride_src(double* buffer, double* vec, size_t dim1, size_t dim2, size_t stride) {
+void Dtranspose_stride_src(double* buffer, double* vec, size_t dim1,
+                           size_t dim2, size_t stride) {
   massert(buffer && vec, "Dtranspose: Tried to transpose uninitialized vector");
   massert(buffer != vec, "Dtranspose: Tried to transpose in place");
   for (size_t i = 0; i < dim1; i++) {
 #pragma omp parallel for
-    for (size_t j = 0; j < dim2; j++) buffer[dim1 * j + i] = vec[stride * i + j];
+    for (size_t j = 0; j < dim2; j++)
+      buffer[dim1 * j + i] = vec[stride * i + j];
   }
 }
 
-void Dtranspose_stride_dest(double* buffer, double* vec, size_t dim1, size_t dim2, size_t stride) {
+void Dtranspose_stride_dest(double* buffer, double* vec, size_t dim1,
+                            size_t dim2, size_t stride) {
   massert(buffer && vec, "Dtranspose: Tried to transpose uninitialized vector");
   massert(buffer != vec, "Dtranspose: Tried to transpose in place");
   for (size_t i = 0; i < dim1; i++) {
 #pragma omp parallel for
-    for (size_t j = 0; j < dim2; j++) buffer[stride * j + i] = vec[dim2 * i + j];
+    for (size_t j = 0; j < dim2; j++)
+      buffer[stride * j + i] = vec[dim2 * i + j];
   }
 }
 
@@ -217,11 +221,13 @@ void Dtranspose_add(double* buffer, double* vec, size_t dim1, size_t dim2) {
   }
 }
 
-void Dtranspose_stride_dest_add(double* buffer, double* vec, size_t dim1, size_t dim2, size_t stride) {
+void Dtranspose_stride_dest_add(double* buffer, double* vec, size_t dim1,
+                                size_t dim2, size_t stride) {
   massert(buffer && vec, "Dtranspose: Tried to transpose uninitialized vector");
   massert(buffer != vec, "Dtranspose: Tried to transpose in place");
   for (size_t i = 0; i < dim1; i++) {
 #pragma omp parallel for
-    for (size_t j = 0; j < dim2; j++) buffer[stride * j + i] += vec[dim2 * i + j];
+    for (size_t j = 0; j < dim2; j++)
+      buffer[stride * j + i] += vec[dim2 * i + j];
   }
 }

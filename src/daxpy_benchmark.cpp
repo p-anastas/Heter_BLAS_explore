@@ -12,7 +12,6 @@
 #include "gpu_utils.hpp"
 
 int main(const int argc, const char *argv[]) {
-
   double alpha;
 
   size_t N, itterations = 1, incx, incy;
@@ -33,7 +32,6 @@ int main(const int argc, const char *argv[]) {
       error("Incorrect input arguments");
   }
 
-
   double total_t = 0;
 
   double *x, *y;
@@ -41,13 +39,16 @@ int main(const int argc, const char *argv[]) {
   x = Dvec_init_pinned(N, 42);
   y = Dvec_init_pinned(N, 0);
 
-  itterations = 10;
-  fprintf(stdout,"%d,%lf,%d,%d,",  N, alpha, incx, incy);
+  itterations = 1000;
 
-total_t = csecond();
-for (int it = 0; it < itterations; it++) cblas_daxpy (N, alpha, x, incx, y, incy);
-total_t = csecond() - total_t;
-fprintf(stderr, "daxpy(%d) benchmarked sucsessfully t = %lf ms ( %.15lf s/double)\n", N, total_t*1000/itterations, total_t/N/itterations);
-fprintf(stdout,"%.15lf\n", total_t/itterations);
- return 0;
+  total_t = csecond();
+  for (int it = 0; it < itterations; it++)
+    cblas_daxpy(N, alpha, x, incx, y, incy);
+  total_t = csecond() - total_t;
+  fprintf(stderr,
+          "daxpy(%d) benchmarked sucsessfully t = %lf ms ( %.15lf s/double)\n",
+          N, total_t * 1000 / itterations, total_t / N / itterations);
+  fprintf(stdout, "%d,%lf,%d,%d,%.15lf\n", N, alpha, incx, incy,
+          total_t / itterations);
+  return 0;
 }
