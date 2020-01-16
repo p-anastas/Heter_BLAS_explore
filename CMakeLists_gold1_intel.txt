@@ -1,6 +1,7 @@
 cmake_minimum_required (VERSION 3.10)
 #set(CMAKE_VERBOSE_MAKEFILE on)
 set ( CMAKE_CUDA_COMPILER "/usr/local/cuda-9.2/bin/nvcc" )
+set ( CMAKE_CXX_COMPILER  "/various/common_tools/intel_parallel_studio/bin/icc" )
 project (Zawardo C CXX CUDA)
 
 set ( PROJECT_LIB_DIR ${PROJECT_SOURCE_DIR}/lib )
@@ -12,7 +13,7 @@ message( "CMAKE_CURRENT_SOURCE_DIR: " ${CMAKE_CURRENT_SOURCE_DIR} )
 message( "CMAKE_CURRENT_BINARY_DIR: " ${CMAKE_CURRENT_BINARY_DIR} )
 
 # C++ compile flags
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fopenmp")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -qopenmp")
 message( "CMAKE_CXX_FLAGS: " ${CMAKE_CXX_FLAGS})
 
 # NVCC compile flags
@@ -30,24 +31,22 @@ set (CUDA_LINK "-L${CUDA_LD} -L${CUDA_LD1} -lcudart -lcublas -lcusparse ")
 message( "CUDA_LINK: " ${CUDA_LINK} )
 
 #MKL libs and includes 
-set (MKL_ROOT "/various/common_tools/intel_parallel_studio/mkl") # "/various/common_tools/intel_parallel_studio/mkl" for cslab
-set (MKL_INCLUDE_DIRS "${MKL_ROOT}/include")
-include_directories(${MKL_INCLUDE_DIRS})
+set (MKL_PREFIX "/various/common_tools/intel_parallel_studio/mkl") # "/various/common_tools/intel_parallel_studio/mkl" for cslab
+set (MKL_INCLUDE_DIRS ${MKL_PREFIX}/include)
+include_directories(${MKL_INCLUDE_DIRS} )
 message( "MKL_INCLUDE_DIRS: " ${MKL_INCLUDE_DIRS} )
-set (MKL_LD "${MKL_ROOT}/lib/intel64")
-set (MKL_LINK  "-Wl,--start-group ${MKL_LD}/libmkl_intel_ilp64.a ${MKL_LD}/libmkl_gnu_thread.a ${MKL_LD}/libmkl_core.a -Wl,--end-group -lgomp -lpthread -lm -ldl" ) #-lnuma
+set (MKL_LD ${MKL_PREFIX}/lib/intel64)
+set (MKL_LINK  "-L${MKL_LD} -lmkl_rt  -lpthread -lm" ) #-lnuma
 message( "MKL_LINK: " ${MKL_LINK} )
-set (MKL_COMPILE_OPS "-DMKL_ILP64 -m64")
-message( "MKL_COMPILE_OPS: " ${MKL_COMPILE_OPS} )
-add_compile_options(${MKL_COMPILE_OPS})
+
 #Intel Parallel Studio libs and includes
-#set (INTEL_PREFIX "/various/common_tools/intel_parallel_studio") #"/various/common_tools/intel_parallel_studio" for cslab
-#set (INTEL_INCLUDE_DIRS ${INTEL_PREFIX}/include)
-#include_directories(${INTEL_INCLUDE_DIRS} )
-#message( "INTEL_INCLUDE_DIRS: " ${INTEL_INCLUDE_DIRS} )
-#set (INTEL_LD ${INTEL_PREFIX}/lib/intel64)
-#set (INTEL_LINK  "-L${INTEL_LD} -xHost" )
-#message( "INTEL_LINK: " ${INTEL_LINK} )
+set (INTEL_PREFIX "/various/common_tools/intel_parallel_studio") #"/various/common_tools/intel_parallel_studio" for cslab
+set (INTEL_INCLUDE_DIRS ${INTEL_PREFIX}/include)
+include_directories(${INTEL_INCLUDE_DIRS} )
+message( "INTEL_INCLUDE_DIRS: " ${INTEL_INCLUDE_DIRS} )
+set (INTEL_LD ${INTEL_PREFIX}/lib/intel64)
+set (INTEL_LINK  "-L${INTEL_LD} -xHost" )
+message( "INTEL_LINK: " ${INTEL_LINK} )
 
 
 
@@ -67,7 +66,7 @@ add_executable (daxpy_benchmark ${PROJECT_SOURCE_DIR}/daxpy_benchmark.cpp)
 add_executable (transpose_benchmark ${PROJECT_SOURCE_DIR}/transpose_benchmark.cpp)
 add_executable (bandwidth_benchmark ${PROJECT_SOURCE_DIR}/bandwidth_benchmark.cu)
 
-set (LINK_LIB "${MKL_LINK} ${CUDA_LINK} -lrt -ldl")
+set (LINK_LIB "${INTEL_LINK} ${MAGMA_LINK} ${MKL_LINK} ${CUDA_LINK} -lrt -ldl")
 message( "LINK_LIB: " ${LINK_LIB})
 target_link_libraries(dgemm_runner ${LINK_LIB} MyLib)
 target_link_libraries(daxpy_benchmark ${LINK_LIB} MyLib)

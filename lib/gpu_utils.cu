@@ -14,6 +14,7 @@ void print_devices() {
   cudaDeviceProp properties;
   int nDevices = 0;
   cudaGetDeviceCount(&nDevices);
+  printf("Found %d Devices: \n\n", nDevices);
   for (int i = 0; i < nDevices; i++) {
     cudaGetDeviceProperties(&properties, i);
     printf("Device Number: %d\n", i);
@@ -221,7 +222,7 @@ float *Svec_transfer_gpu(float *host_vec, size_t size) {
 
 double *Dvec_init_pinned(size_t size, double val) {
   double *vec = (double *)pin_malloc(size * sizeof(double));
-  if (Dequals(val, 42, 0.00000001/*DBL_EPSILON*/)) {
+  if (Dequals(val, 42, 0.00000001 /*DBL_EPSILON*/)) {
 #pragma omp parallel for
     for (size_t i = 0; i < size; i++) vec[i] = Drandom(-1, 1);
   } else {

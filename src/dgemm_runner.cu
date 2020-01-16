@@ -958,10 +958,6 @@ int main(const int argc, const char *argv[]) {
       main_ctrl->cpu_ex_t = main_ctrl->gpu_ex_t = main_ctrl->gather_t =
           main_ctrl->reduce_t = 0;
 
-  double transpose_timer, cpu_timer = csecond(), total_t;
-  float gpu_preproc_t = 0, gpu_comp_t = 0, gpu_reduce_t = 0;
-  gpu_timer_p cuda_timer = gpu_timer_init();
-
   // cudaStream_t stream1, stream2;
   // cudaStreamCreate(&stream1);
   // cudaStreamCreate (&stream2);
@@ -1016,6 +1012,18 @@ int main(const int argc, const char *argv[]) {
       gpu_op_B = CUBLAS_OP_N;
     }
   }
+
+  int devices = 0;
+  cudaGetDeviceCount(&devices);
+  if (main_pred->M_split + main_pred->N_split + main_pred->K_split &&
+      devices < 1)
+    error("Trying to execute something CUDA-related on node without CUDA GPUs");
+  else
+    cudaSetDevice(devices - 1);
+
+  double transpose_timer, cpu_timer = csecond(), total_t;
+  float gpu_preproc_t = 0, gpu_comp_t = 0, gpu_reduce_t = 0;
+  gpu_timer_p cuda_timer = gpu_timer_init();
 
   A = Dvec_init_pinned(M * K, 42);
   B = Dvec_init_pinned(K * N, 42);
@@ -1076,7 +1084,6 @@ int main(const int argc, const char *argv[]) {
     for (int i = 0; i < 10; i++) {
       stat = cublasDgemm(handle, gpu_op_A, gpu_op_B, M, N, K, &alpha, d_A, ldA,
                          d_B, ldB, &beta, d_C, M);
-      cudaDeviceSynchronize();
     }
 
     gpu_timer_stop(cuda_timer);

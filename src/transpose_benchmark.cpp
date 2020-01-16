@@ -43,6 +43,6 @@ int main(const int argc, const char *argv[]) {
           "transpose(%d,%d) benchmarked sucsessfully t = %lf ms ( %.15lf "
           "s/double)\n",
           N, M, total_t * 1000 / itterations, total_t / N * M / itterations);
-  fprintf(stdout, "%d,%d,%.15lf\n", Ν, Μ, total_t / itterations);
+  fprintf(stdout, "%d,%d,%.15lf\n", N, M, total_t / itterations);
   return 0;
 }
