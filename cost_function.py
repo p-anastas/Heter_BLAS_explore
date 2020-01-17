@@ -1,5 +1,7 @@
 import subprocess
 import sys
+import numpy as np
+import scipy.optimize as scipop
 machine = 'gold1'
 resDir = 'Results_' + machine + '/'
 
@@ -9,15 +11,14 @@ with open(resDir + 'bandwidth_log_' + machine + '.md_sorted', "r") as file0:
 with open(resDir + 'daxpy_log_' + machine + '.md_sorted', "r") as file0:
     add_db = file0.readlines()
 
-def binary_bounds(start, X):
-    next = start
-    while (next < X):
-        next *= 2
-    if next == X:
-        prev = next
-    else:
-        prev = next / 2
-    return (prev, next)
+with open(resDir + 'transpose_log_' + machine + '.md', "r") as file0:
+    trans_db = file0.readlines()
+
+with open(resDir + 'CPU_only_log_' + machine + '.md_sorted', "r") as file0:
+    cpu_gemm_db = file0.readlines()
+
+with open(resDir + 'GPU_only_log_' + machine + '.md_sorted', "r") as file0:
+    gpu_gemm_db = file0.readlines()
 
 def report_bandwidth(bytes):
 	cpu_to_gpu_time =  t_memcpy(bytes, -1, 0)
@@ -28,69 +29,246 @@ def report_bandwidth(bytes):
 def report_flops(N):
 	t_add = t_add_vec_1d(N, 8)
 	print('Add (%d)  t = %.5lf ms, flops =  %.3lf Gfops/s\n'  % (N, 1000*t_add, GigaVal_per_s(N,t_add) ))
+	t_trans = t_dtranspose(N,  N)
+	print('Transpose (%d, %d)  t = %.5lf ms, flops =  %.3lf Gfops/s\n'  % (N, N,1000*t_trans, GigaVal_per_s(N*N,t_trans) ))
+	t_gemm_cpu = t_dgemm_cpu(N, N/2, N*2)
+	print('DGEMM CPU (%d, %d, %d)  t = %.5lf ms, flops =  %.3lf Gfops/s\n'  % (N, N/2, N*2,1000*t_gemm_cpu, GigaVal_per_s(N*N/2*N*2,t_gemm_cpu) ))
+	t_gemm_gpu = t_dgemm_gpu(N, N/2, N*2)
+	print('DGEMM GPU (%d, %d, %d)  t = %.5lf ms, flops =  %.3lf Gfops/s\n'  % (N, N/2, N*2,1000*t_gemm_gpu, GigaVal_per_s(N*N/2*N*2,t_gemm_gpu) ))
 
 def GigaVal_per_s(val, time):
 	return val*1e-9/time
 
 def t_transfer_to_gpu(bytes):
-    bytes_min, bytes_max = binary_bounds(625, bytes)
-    time_min = 0
-    time_max = 0
+    prev = [] 
+    next = []
+    ctr = len(bw_db)
     for line in bw_db:
+	ctr -= 1
         temp = line.split(',')
-        if int(temp[0]) == bytes_min and int(temp[1]) == -1 and int(temp[2]) == 0:
-            time_min = float(temp[3])
-        if int(temp[0]) == bytes_max and int(temp[1]) == -1 and int(temp[2]) == 0:
-            time_max = float(temp[3])
-    if (time_min == 0 or time_max == 0):
-        print("t_transfer_to_gpu: No DB entry found")
-        return bytes / 6e9
+        if int(temp[1]) == -1 and int(temp[2]) == 0:
+	    prev = next
+	    next = temp
+	    if int(temp[0]) >= bytes:
+		break
+    if next == []:
+	sys.exit('Error: CPU to GPU benchmark not found')
+    elif int(next[0]) == bytes:
+        return float(next[3])
+    if prev == []:
+	print("t_transfer_to_gpu: No DB entry found, %d bytes < min benchmark value" % bytes)
+	return float(next[3])* bytes/ int(next[0])
+    elif ctr == 0:
+	print("t_transfer_to_gpu: No DB entry found, %d bytes > max benchmark value" % bytes)
+	return float(next[3])* bytes/ int(next[0])
     else:
-        if bytes_max == bytes_min:
-            return  time_min
-        else:
-            return  (time_min + (time_max - time_min) /
-                                                  (bytes_max - bytes_min) * (bytes - bytes_min))
+        return  (float(prev[3]) + (float(next[3]) - float(prev[3])) /
+                                                  (int(next[0]) - int(prev[0])) * (bytes - int(prev[0])))
 
 
 def t_transfer_from_gpu(bytes):
-    bytes_min, bytes_max = binary_bounds(625, bytes)
-    time_min = 0
-    time_max = 0
+    prev = [] 
+    next = []
+    ctr = len(bw_db)
     for line in bw_db:
+	ctr -= 1
         temp = line.split(',')
-        if int(temp[0]) == bytes_min and int(temp[1]) == 0 and int(temp[2]) == -1:
-            time_min = float(temp[3])
-        if int(temp[0]) == bytes_max and int(temp[1]) == 0 and int(temp[2]) == -1:
-            time_max = float(temp[3])
-    if (time_min == 0 or time_max == 0):
-        print("t_transfer_from_gpu: No DB entry found")
-        return bytes / 6e9
+        if int(temp[1]) == 0 and int(temp[2]) == -1:
+	    prev = next
+	    next = temp
+	    if int(temp[0]) >= bytes:
+		break
+    if next == []:
+	sys.exit('Error: CPU to GPU benchmark not found')
+    elif int(next[0]) == bytes:
+        return float(next[3])
+    if prev == []:
+	print("t_transfer_from_gpu: No DB entry found, %d bytes < min benchmark value" % bytes)
+	return float(next[3])* bytes/ int(next[0])
+    elif ctr == 0:
+	print("t_transfer_from_gpu: No DB entry found, %d bytes > max benchmark value" % bytes)
+	return float(next[3])* bytes/ int(next[0])
     else:
-        if bytes_max == bytes_min:
-            return time_min
-        else:
-            return (time_min + (time_max - time_min) /
-                                                  (bytes_max - bytes_min) * (bytes - bytes_min))
+        return  (float(prev[3]) + (float(next[3]) - float(prev[3])) /
+                                                  (int(next[0]) - int(prev[0])) * (bytes - int(prev[0])))
 
 def t_dadd(X):
-    N_min, N_max = binary_bounds(625, X)
-    time_min = 0
-    time_max = 0
+    prev = [] 
+    next = []
+    ctr = len(add_db)
     for line in add_db:
+	ctr -= 1
         temp = line.split(',')
-        if int(temp[0]) == N_min:
-            time_min = float(temp[4])
-        if int(temp[0]) == N_max:
-            time_max = float(temp[4])
-    if (time_min == 0 or time_max == 0):
-        print("t_dadd: No DB entry found")
-        return 0.0064*X
+	prev = next
+	next = temp
+	if int(temp[0]) >= X:
+	    break
+    if next == []:
+	sys.exit('Error: dadd benchmark not found')
+    elif int(next[0]) == X:
+        return float(next[4])
+    if prev == []:
+	print("t_dadd: No DB entry found, %d < min benchmark value" % X)
+	return float(next[4])* X/ int(next[0])
+    elif ctr == 0:
+	print("t_dadd: No DB entry found, %d > max benchmark value" % X)
+	return float(next[4])* X/ int(next[0])
     else:
-        if N_max == N_min:
-            return time_min
-        else:
-            return (time_min + (time_max - time_min) / (N_max - N_min) * (N - N_min))
+        return  (float(prev[4]) + (float(next[4]) - float(prev[4])) /
+                                                  (int(next[0]) - int(prev[0])) * (X - int(prev[0])))
+
+def t_dtranspose(X,Y):  
+    if (X == 0 or Y == 0):
+        return 0
+    ctr = len(trans_db)
+    if ctr == 0:
+	sys.exit('Error: transpose benchmark not found')
+    var_list = [X, Y]
+    var_bot=[0,0]
+    var_top=[0,0]
+    for dim in range(len(var_list)):
+        for line in trans_db:
+	    ctr -=1
+            temp = line.split(',')
+	    var_bot[dim] = var_top[dim]
+	    var_top[dim] = int(temp[dim])
+	    if int(temp[dim]) >= var_list[dim]:
+	        break	
+	if ctr == 0:
+		var_top[dim] = 0
+    	if (var_top[dim] == var_list[dim]):
+		var_bot[dim] = var_list[dim]
+    #print(var_bot)
+    #print(var_list)
+    #print(var_top)
+    prev = [] 
+    next = []
+    for line in trans_db:
+        temp = line.split(',')
+	if var_bot[0] == int(temp[0]) and var_bot[1] == int(temp[1]):
+	    prev = temp
+	if var_top[0] == int(temp[0]) and var_top[1] == int(temp[1]):
+	    next = temp
+	    break;
+    #print(prev)
+    #print(next)
+    if prev == []:
+	print("t_transpose: No DB entry found, %d %d < min benchmark value" % (X,Y))
+	return float(next[2])* X/ int(next[0])* Y/ int(next[1])
+    elif next == []:
+	print("t_transpose: No DB entry found, %d %d > max benchmark value" % (X,Y))
+	return float(prev[2])* X/ int(prev[0]) * Y/ int(prev[1])
+    elif int(next[0]) == X and int(next[1]) == Y:
+        return float(next[2])
+    else:
+        normalizer = 1.0
+	if int(next[0]) != X:
+		normalizer *= (X - float(prev[0])) / (int(next[0]) - int(prev[0]))
+	if int(next[1]) != Y:
+		normalizer *=  (Y - float(prev[1])) / (int(next[1]) - int(prev[1]))
+        return  (float(prev[2]) + (float(next[2]) - float(prev[2])) *normalizer )
+
+def t_dgemm_cpu(M,N,K):
+    ctr = len(cpu_gemm_db)
+    if ctr == 0:
+	sys.exit('Error: t_dgemm_cpu benchmark not found')
+    var_list = [M, N, K]
+    var_bot=[0,0,0]
+    var_top=[0,0,0]
+    for dim in range(len(var_list)):
+        for line in cpu_gemm_db:
+	    ctr -=1
+            temp = line.split(',')
+	    var_bot[dim] = var_top[dim]
+	    var_top[dim] = int(temp[dim])
+	    if int(temp[dim]) >= var_list[dim]:
+	        break	
+	if ctr == 0:
+		var_top[dim] = 0
+    	if (var_top[dim] == var_list[dim]):
+		var_bot[dim] = var_list[dim]
+    #print(var_bot)
+    #print(var_list)
+    #print(var_top)
+    prev = [] 
+    next = []
+    for line in cpu_gemm_db:
+        temp = line.split(',')
+	if var_bot[0] == int(temp[0]) and var_bot[1] == int(temp[1]) and var_bot[2] == int(temp[2]):
+	    prev = temp
+	if var_top[0] == int(temp[0]) and var_top[1] == int(temp[1]) and var_top[2] == int(temp[2]):
+	    next = temp
+	    break;
+    #print(prev)
+    #print(next)
+    if prev == []:
+	print("t_dgemm_cpu: No DB entry found, %d %d %d < min benchmark value" % (M,N,K))
+	return float(temp[19])* M/ int(next[0])* N/ int(next[1])* K/ int(next[2])
+    elif next == []:
+	print("t_dgemm_cpu: No DB entry found, %d %d %d > max benchmark value" % (M,N,K))
+	return float(prev[19])* M/ int(prev[0])* N/ int(prev[1])* K/ int(prev[2])
+    elif int(next[0]) == M and int(next[1]) == N and int(next[2]) == K:
+        return float(next[19])
+    else:
+        normalizer = 1.0
+	if int(next[0]) != M:
+		normalizer *= (M - float(prev[0])) / (int(next[0]) - int(prev[0]))
+	if int(next[1]) != N:
+		normalizer *= (N - float(prev[1])) / (int(next[1]) - int(prev[1]))
+	if int(next[2]) != K:
+		normalizer *= (K - float(prev[2])) / (int(next[2]) - int(prev[2]))
+        return  (float(prev[19]) + (float(next[19]) - float(prev[19])) *normalizer )
+
+def t_dgemm_gpu(M,N,K):
+    ctr = len(gpu_gemm_db)
+    if ctr == 0:
+	sys.exit('Error: t_dgemm_cpu benchmark not found')
+    var_list = [M, N, K]
+    var_bot=[0,0,0]
+    var_top=[0,0,0]
+    for dim in range(len(var_list)):
+        for line in gpu_gemm_db:
+	    ctr -=1
+            temp = line.split(',')
+	    var_bot[dim] = var_top[dim]
+	    var_top[dim] = int(temp[dim])
+	    if int(temp[dim]) >= var_list[dim]:
+	        break	
+	if ctr == 0:
+		var_top[dim] = 0
+    	if (var_top[dim] == var_list[dim]):
+		var_bot[dim] = var_list[dim]
+    #print(var_bot)
+    #print(var_list)
+    #print(var_top)
+    prev = [] 
+    next = []
+    for line in gpu_gemm_db:
+        temp = line.split(',')
+	if var_bot[0] == int(temp[0]) and var_bot[1] == int(temp[1]) and var_bot[2] == int(temp[2]):
+	    prev = temp
+	if var_top[0] == int(temp[0]) and var_top[1] == int(temp[1]) and var_top[2] == int(temp[2]):
+	    next = temp
+	    break;
+    #print(prev)
+    #print(next)
+    if prev == []:
+	print("t_dgemm_cpu: No DB entry found, %d %d %d < min benchmark value" % (M,N,K))
+	return float(temp[19])* M/ int(next[0])* N/ int(next[1])* K/ int(next[2])
+    elif next == []:
+	print("t_dgemm_cpu: No DB entry found, %d %d %d > max benchmark value" % (M,N,K))
+	return float(prev[19])* M/ int(prev[0])* N/ int(prev[1])* K/ int(prev[2])
+    elif int(next[0]) == M and int(next[1]) == N and int(next[2]) == K:
+        return float(next[19])
+    else:
+        normalizer = 1.0
+	if int(next[0]) != M:
+		normalizer *= (M - float(prev[0])) / (int(next[0]) - int(prev[0]))
+	if int(next[1]) != N:
+		normalizer *= (N - float(prev[1])) / (int(next[1]) - int(prev[1]))
+	if int(next[2]) != K:
+		normalizer *= (K - float(prev[2])) / (int(next[2]) - int(prev[2]))
+        return  (float(prev[19]) + (float(next[19]) - float(prev[19])) *normalizer )
 
 def t_memcpy(bytes, src, dest):
 	## For now only for dev0 <-> host 
@@ -126,11 +304,105 @@ def t_add_vec_2d(dim1, dim2, ldim, elem_size):
 		sys.exit('Error: dim2(%d) > ldim(%d)' % (dim2, ldim))
 
 
-sizes = [100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 51200,102400,204800,409600]
+sizes = [3200]#,100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000, 2000000, 5000000, 10000000, 20000000, 50000000, 100000000, 200000000, 500000000, 1000000000 ]
+
+def f_M_split(M_split, M, N, K, elem_size):
+    for A_mem in [0,1]:
+	for B_mem in [0,1]:
+	    for C_mem in [0,1]:
+     		temp = Impl_M_split(M_split, M, N, K, A_mem, B_mem, C_mem, elem_size)
+		if (temp > min_fun_t):
+		    min_fun_t = temp
+    return min_fun_t
+
+def Impl_M_split(M_split, M, N, K, A_mem, B_mem, C_mem, elem_size):
+    M_gpu = M_split
+    M_cpu = M - M_split
+    if A_mem:
+	A_dim1, A_dim2, ldim = K,M_gpu,M
+    else:
+	A_dim1, A_dim2, ldim = M_gpu,K,K
+    t_transfer_A = t_copy_vec_2d(A_dim1, A_dim2, ldim, -1, 0, elem_size)
+    if B_mem:
+	B_dim1, B_dim2, ldim = N,K,K
+    else:
+	B_dim1, B_dim2, ldim = K,N,N
+    t_transfer_B = t_copy_vec_2d(B_dim1, B_dim2, ldim, -1, 0, elem_size)
+    if C_mem:
+	C_dim1, C_dim2, ldim = N,M_gpu,M
+    else:
+	C_dim1, C_dim2, ldim = M_gpu,N,N
+    t_get_C = t_copy_vec_2d(C_dim1, C_dim2, ldim, 0, -1, elem_size)
+    t_transfer_C = t_copy_vec_2d(C_dim1, C_dim2, ldim, -1, 0, elem_size)
+
+    t_gpu_overhead = t_transfer_A + t_transfer_B + t_transfer_C + t_get_C
+    t_cpu_overhead = 1/10*(1 - C_mem)*(t_dtranspose(M_gpu ,N) + t_dtranspose(N, M_gpu))
+    t_total_M_split = t_gpu_overhead + t_cpu_overhead + max(t_dgemm_gpu(M_gpu, N, K), t_dgemm_cpu(M_cpu, N, K))
+    print(M_split, t_total_M_split)
+    return t_total_M_split
+
+def Impl_N_split(N_split, M, N, K, A_mem, B_mem, C_mem, elem_size):
+    N_gpu = N_split
+    N_cpu = N - N_split
+    if A_mem:
+	A_dim1, A_dim2, ldim = K,M,M
+    else:
+	A_dim1, A_dim2, ldim = M,K,K
+    t_transfer_A = t_copy_vec_2d(A_dim1, A_dim2, ldim, -1, 0, elem_size)
+    if B_mem:
+	B_dim1, B_dim2, ldim = N_gpu,K,K
+    else:
+	B_dim1, B_dim2, ldim = K,N_gpu,N
+    t_transfer_B = t_copy_vec_2d(B_dim1, B_dim2, ldim, -1, 0, elem_size)
+    if C_mem:
+	C_dim1, C_dim2, ldim = N_gpu,M,M
+    else:
+	C_dim1, C_dim2, ldim = M,N_gpu,N
+    t_get_C = t_copy_vec_2d(C_dim1, C_dim2, ldim, 0, -1, elem_size)
+    t_transfer_C = t_copy_vec_2d(C_dim1, C_dim2, ldim, -1, 0, elem_size)
+
+    t_gpu_overhead = t_transfer_A + t_transfer_B + t_transfer_C + t_get_C
+    t_cpu_overhead = 1/10*(1 - C_mem)*(t_dtranspose(M ,N_gpu) + t_dtranspose(N_gpu, M))
+    t_total_N_split = t_gpu_overhead + t_cpu_overhead + max(t_dgemm_gpu(M, N_gpu, K), t_dgemm_cpu(M, N_cpu, K))
+    print(N_split, t_total_N_split)
+    return t_total_N_split
+
+def Impl_K_split(K_split, M, N, K, A_mem, B_mem, C_mem, elem_size):
+    K_gpu = K_split
+    K_cpu = K - K_split
+    if A_mem:
+	A_dim1, A_dim2, ldim = K_gpu,M,M
+    else:
+	A_dim1, A_dim2, ldim = M,K_gpu,K
+    t_transfer_A = t_copy_vec_2d(A_dim1, A_dim2, ldim, -1, 0, elem_size)
+    if B_mem:
+	B_dim1, B_dim2, ldim = N,K_gpu,K
+    else:
+	B_dim1, B_dim2, ldim = K_gpu,N,N
+    t_transfer_B = t_copy_vec_2d(B_dim1, B_dim2, ldim, -1, 0, elem_size)
+    if C_mem:
+	C_dim1, C_dim2, ldim = N,M,M
+    else:
+	C_dim1, C_dim2, ldim = M,N,N
+    t_get_C = t_copy_vec_2d(C_dim1, C_dim2, ldim, 0, -1, elem_size)
+    t_transfer_C = t_copy_vec_2d(C_dim1, C_dim2, ldim, -1, 0, elem_size)
+
+    t_gpu_overhead = t_transfer_A + t_transfer_B + t_transfer_C + t_get_C
+    t_cpu_overhead = 1/10*(1 - C_mem)*(t_dtranspose(M ,N) + t_dtranspose(N, M)) + t_add_vec_1d(M * N, elem_size)
+    t_total_K_split = t_gpu_overhead + t_cpu_overhead + max(t_dgemm_gpu(M, N, K_gpu), t_dgemm_cpu(M, N, K_cpu))
+    print(K_split, t_total_K_split)
+    return t_total_K_split
 
 dtype_size = 8 
+t_min = 100
 
-for N in sizes:
-	report_bandwidth(N*dtype_size)
-	report_flops(N)
+
+answer = scipop.fmin(Impl_M_split, 600, args =(10000,10000,10000,0,0,0,8) )
+answer1 = scipop.fmin(Impl_N_split, 600, args =(10000,10000,10000,0,0,0,8) )
+answer2 = scipop.fmin(Impl_K_split, 600, args =(10000,10000,10000,0,0,0,8) )
+print(answer)
+print(answer1)
+print(answer2)
+	#report_bandwidth(N*dtype_size)
+	#report_flops(N)
 
