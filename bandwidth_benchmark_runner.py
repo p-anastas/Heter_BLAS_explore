@@ -14,29 +14,11 @@ resDir = 'Results_' + machine + '/'
 if not os.path.exists(resDir):
     os.mkdir(resDir)
 
-sizes = [
-    625,
-    1250,
-    2500,
-    5000,
-    10000,
-    20000,
-    40000,
-    80000,
-    160000,
-    320000,
-    640000,
-    1280000,
-    2560000,
-    5120000,
-    10240000,
-    20480000,
-    40960000,
-    81920000,
-    163840000,
-    327680000,
-    655360000,
-    1310720000]
+sizes = list(range(100, 1000, 100))
+sizes.extend(list(range(1000, 10000, 1000)))
+sizes.extend(list(range(10000, 100000, 10000)))
+sizes.extend(list(range(100000, 1000000, 100000)))
+# print(sizes)
 benchmark_skip_error = 0.1
 benchmark_recursive_depth = 5
 print('\nRunning benchmarks for dgemm_runner')
@@ -50,7 +32,7 @@ for src in devnum:
             with open(logf, "r") as file0:
                 log = file0.readlines()
             rec = 0
-            Bytes_r = Bytes
+            Bytes_r = [Bytes]
             for line in log:
                 temp = line.split(',')
                 if (int(temp[0]) == Bytes and int(temp[1]) == src and int(temp[2]) == dest):
@@ -65,22 +47,23 @@ for src in devnum:
                     skip_benchmark = True
             Bytes_rec = []
             while (rec < benchmark_recursive_depth and skip_benchmark == False):
-                Bytes_r /= 2
+                Bytes_r.append(Bytes_r[-1] / 2)
                 for line in log:
                     temp = line.split(',')
-                    if (int(temp[0]) == Bytes_r and int(temp[1]) == src and int(temp[2]) == dest):
+                    if (int(temp[0]) == Bytes_r[-1] and int(temp[1])
+                            == src and int(temp[2]) == dest):
                         Bytes_rec.append(float(temp[3]))
                 rec += 1
             if len(Bytes_rec) == benchmark_recursive_depth and skip_benchmark == False:
                 #print('Found ' +  str(benchmark_recursive_depth) + ' existing ancestors')
                 ctr = 1
-                while(ctr < benchmark_recursive_depth and comp_accuracy(2 * Bytes_rec[ctr], Bytes_rec[ctr - 1], benchmark_skip_error)):
+                while(ctr < benchmark_recursive_depth and comp_accuracy(Bytes_r[ctr + 1] / Bytes_r[ctr] * Bytes_rec[ctr], Bytes_rec[ctr - 1], benchmark_skip_error)):
                     ctr += 1
                 if ctr == benchmark_recursive_depth:
                     skip_benchmark = True
                     with open(logf, "a+") as file0:
                         file0.write(str(Bytes) + ',' + str(src) + ',' + str(dest) +
-                                    ',' + str(Bytes_rec[0] * 2) + ',synth\n')
+                                    ',' + str(Bytes_r[0] / Bytes_r[1] * 2) + ',synth\n')
                     print('Skipping Bytes=' +
                           str(Bytes) +
                           ' src=' +
