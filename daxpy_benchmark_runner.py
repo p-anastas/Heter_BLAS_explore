@@ -14,29 +14,13 @@ resDir = 'Results_' + machine + '/'
 if not os.path.exists(resDir):
     os.mkdir(resDir)
 
-sizes = [
-    625,
-    1250,
-    2500,
-    5000,
-    10000,
-    20000,
-    40000,
-    80000,
-    160000,
-    320000,
-    640000,
-    1280000,
-    2560000,
-    5120000,
-    10240000,
-    20480000,
-    40960000,
-    81920000,
-    163840000,
-    327680000,
-    655360000,
-    1310720000]
+sizes = list(range(100, 1000, 100))
+sizes.extend(list(range(1000, 50000, 1000)))
+sizes.extend(list(range(50000, 100000, 10000)))
+sizes.extend(list(range(100000, 1000000, 100000)))
+sizes.extend(list(range(1000000, 10000000, 1000000)))
+sizes.extend(list(range(10000000, 100000000, 10000000)))
+sizes.extend(list(range(100000000, 1000000000, 100000000)))
 benchmark_skip_error = 0.1
 benchmark_recursive_depth = 3
 alpha = 1.0
@@ -54,30 +38,30 @@ for N in sizes:
         if int(temp[0]) == N:
             print('Skipping N=' + str(N) + ' ...already benchmarked')
             skip_benchmark = True
-    N_rec = []
-    while (rec < benchmark_recursive_depth and skip_benchmark == False):
-        N_r /= 2
-        for line in log:
-            temp = line.split(',')
-            if int(temp[0]) == N_r:
-                N_rec.append(float(temp[4]))
-        rec += 1
-    if len(N_rec) == benchmark_recursive_depth and skip_benchmark == False:
+    #N_rec = []
+    #while (rec < benchmark_recursive_depth and skip_benchmark == False):
+    #    N_r /= 2
+    #    for line in log:
+    #        temp = line.split(',')
+    #        if int(temp[0]) == N_r:
+    #            N_rec.append(float(temp[4]))
+    #    rec += 1
+    #if len(N_rec) == benchmark_recursive_depth and skip_benchmark == False:
         #print('Found ' +  str(benchmark_recursive_depth) + ' existing ancestors')
-        ctr = 1
-        while(ctr < benchmark_recursive_depth and comp_accuracy(2 * N_rec[ctr], N_rec[ctr - 1], benchmark_skip_error)):
-            ctr += 1
-        if ctr == benchmark_recursive_depth:
-            skip_benchmark = True
-            with open(logf, "a+") as file0:
-                file0.write(str(N) + ',' + str(alpha) + ',1,1,' + str(N_rec[0] * 2) + ',synth\n')
-            print('Skipping N=' + str(N) + ' ...time calculated as 2*  N=' + str(N / 2))
+    #    ctr = 1
+    #    while(ctr < benchmark_recursive_depth and comp_accuracy(2 * N_rec[ctr], N_rec[ctr - 1], benchmark_skip_error)):
+    #        ctr += 1
+    #    if ctr == benchmark_recursive_depth:
+    #        skip_benchmark = True
+    #        with open(logf, "a+") as file0:
+    #            file0.write(str(N) + ',' + str(alpha) + ',1,1,' + str(N_rec[0] * 2) + ',synth\n')
+    #        print('Skipping N=' + str(N) + ' ...time calculated as 2*  N=' + str(N / 2))
     if skip_benchmark == False:
         Runner = './build/daxpy_benchmark ' + str(N) + ' ' + str(alpha) + ' 1 1'
         proc = Runner + ' >>' + logf + ' 2>>' + errf
         print('Running: ' + proc)
         if 8 * N < 8e9:
-            process = subprocess.run(args=proc, shell=True, check=True)
+            process = subprocess.call(proc, shell=True)
 with open(logf, "r") as file0:
     log = file0.readlines()
 log.sort(key=lambda x: (int(x.split(',')[0])))

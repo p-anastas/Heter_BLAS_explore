@@ -1131,7 +1131,7 @@ int main(const int argc, const char *argv[]) {
     cblas_dgemm(cblas_layout, cpu_op_A, cpu_op_B, M, N, K, alpha, A, ldA, B,
                 ldB, beta, C_comp, ldC);
   else if (!strcmp(argv[ctr], "BENCHMARK")) {
-    itterations = 1000;
+    itterations = 100;
     fprintf(stdout, "%d,%d,%d,%s,%s,%s,%lf,%lf,%d,%d,%d,%d", M, N, K,
             print_mem(main_ctrl->A_mem), print_mem(main_ctrl->B_mem),
             print_mem(main_ctrl->C_mem), alpha, beta, main_pred->Cadd_device_id,

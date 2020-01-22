@@ -14,7 +14,7 @@
 int main(const int argc, const char *argv[]) {
   double alpha, *src, *dest;
 
-  size_t N_bytes, from, to, itterations = 1000;
+  size_t N_bytes, from, to, itterations = 100;
 
   switch (argc) {
     case (4):

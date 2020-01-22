@@ -183,51 +183,97 @@ void Dtest_equality(double* C_comp, double* C, size_t size) {
 void Dtranspose(double* buffer, double* vec, size_t dim1, size_t dim2) {
   massert(buffer && vec, "Dtranspose: Tried to transpose uninitialized vector");
   massert(buffer != vec, "Dtranspose: Tried to transpose in place");
+if (dim1 > dim2){
+  for (size_t j = 0; j < dim2; j++){
+#pragma omp parallel for
+    for (size_t i = 0; i < dim1; i++) 
+      buffer[dim1 * j + i] = vec[dim2 * i + j];
+  }
+}
+else{
   for (size_t i = 0; i < dim1; i++) {
 #pragma omp parallel for
-    for (size_t j = 0; j < dim2; j++) buffer[dim1 * j + i] = vec[dim2 * i + j];
+    for (size_t j = 0; j < dim2; j++)
+      buffer[dim1 * j + i] = vec[dim2 * i + j];
   }
+}
 }
 
 void Dtranspose_stride_src(double* buffer, double* vec, size_t dim1,
                            size_t dim2, size_t stride) {
   massert(buffer && vec, "Dtranspose: Tried to transpose uninitialized vector");
   massert(buffer != vec, "Dtranspose: Tried to transpose in place");
+if (dim1 > dim2){
+    for (size_t j = 0; j < dim2; j++){
+#pragma omp parallel for
+  for (size_t i = 0; i < dim1; i++)
+      buffer[dim1 * j + i] = vec[stride * i + j];
+  }
+}
+else{
   for (size_t i = 0; i < dim1; i++) {
 #pragma omp parallel for
     for (size_t j = 0; j < dim2; j++)
       buffer[dim1 * j + i] = vec[stride * i + j];
   }
 }
+}
 
 void Dtranspose_stride_dest(double* buffer, double* vec, size_t dim1,
                             size_t dim2, size_t stride) {
   massert(buffer && vec, "Dtranspose: Tried to transpose uninitialized vector");
   massert(buffer != vec, "Dtranspose: Tried to transpose in place");
+if (dim1 > dim2){
+  for (size_t j = 0; j < dim2; j++){
+#pragma omp parallel for
+    for (size_t i = 0; i < dim1; i++) 
+      buffer[stride * j + i] = vec[dim2 * i + j];
+  }
+}
+else{
   for (size_t i = 0; i < dim1; i++) {
 #pragma omp parallel for
     for (size_t j = 0; j < dim2; j++)
       buffer[stride * j + i] = vec[dim2 * i + j];
   }
 }
+}
 
 void Dtranspose_add(double* buffer, double* vec, size_t dim1, size_t dim2) {
   massert(buffer && vec, "Dtranspose: Tried to transpose uninitialized vector");
   massert(buffer != vec, "Dtranspose: Tried to transpose in place");
-  double swap = 0;
+if (dim1 > dim2){
+  for (size_t j = 0; j < dim2; j++){
+#pragma omp parallel for
+    for (size_t i = 0; i < dim1; i++) 
+      buffer[dim1 * j + i] += vec[dim2 * i + j];
+  }
+}
+else{
   for (size_t i = 0; i < dim1; i++) {
 #pragma omp parallel for
-    for (size_t j = 0; j < dim2; j++) buffer[dim1 * j + i] += vec[dim2 * i + j];
+    for (size_t j = 0; j < dim2; j++)
+      buffer[dim1 * j + i] += vec[dim2 * i + j];
   }
+}
 }
 
 void Dtranspose_stride_dest_add(double* buffer, double* vec, size_t dim1,
                                 size_t dim2, size_t stride) {
   massert(buffer && vec, "Dtranspose: Tried to transpose uninitialized vector");
   massert(buffer != vec, "Dtranspose: Tried to transpose in place");
+if (dim1 > dim2){
+  for (size_t j = 0; j < dim2; j++){
+#pragma omp parallel for
+    for (size_t i = 0; i < dim1; i++) 
+      buffer[stride * j + i] += vec[dim2 * i + j];
+  }
+}
+else{
   for (size_t i = 0; i < dim1; i++) {
 #pragma omp parallel for
     for (size_t j = 0; j < dim2; j++)
       buffer[stride * j + i] += vec[dim2 * i + j];
   }
+}
 }

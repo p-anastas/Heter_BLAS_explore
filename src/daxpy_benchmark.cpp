@@ -14,7 +14,7 @@
 int main(const int argc, const char *argv[]) {
   double alpha;
 
-  size_t N, itterations = 1, incx, incy;
+  size_t N, itterations = 100, incx, incy;
 
   N = 300;
   alpha = 1.1;
@@ -38,8 +38,6 @@ int main(const int argc, const char *argv[]) {
 
   x = Dvec_init_pinned(N, 42);
   y = Dvec_init_pinned(N, 0);
-
-  itterations = 1000;
 
   total_t = csecond();
   for (int it = 0; it < itterations; it++)

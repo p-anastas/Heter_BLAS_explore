@@ -14,7 +14,7 @@
 int main(const int argc, const char *argv[]) {
   double alpha;
 
-  size_t N, M, itterations = 1;
+  size_t N, M, itterations = 100;
 
   N = M = 300;
 
@@ -33,8 +33,6 @@ int main(const int argc, const char *argv[]) {
 
   x = Dvec_init_pinned(N * M, 42);
   y = Dvec_init_pinned(N * M, 0);
-
-  itterations = 1000;
 
   total_t = csecond();
   for (int it = 0; it < itterations; it++) Dtranspose(y, x, N, M);

@@ -14,9 +14,9 @@ resDir = 'Results_' + machine + '/'
 if not os.path.exists(resDir):
     os.mkdir(resDir)
 
-sizes = [100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600, 51200]
-benchmark_skip_error = 0.1
-benchmark_recursive_depth = 3
+sizes = [100,200,500,1000, 2000, 5000, 10000]
+benchmark_skip_error = 0.0
+benchmark_recursive_depth = 0
 print('\nRunning benchmarks for dgemm_runner')
 logfile = [resDir + 'CPU_only_log_' + machine + '.md', resDir + 'GPU_only_log_' + machine + '.md']
 errfile = [resDir + 'CPU_only_err_' + machine + '.md', resDir + 'GPU_only_err_' + machine + '.md']
@@ -26,6 +26,8 @@ for M in sizes:
         for K in sizes:
             for logf, errf in zip(logfile, errfile):
                 skip_benchmark = False
+                if not os.path.exists(logf):
+                    os.mknod(logf)
                 with open(logf, "r") as file0:
                     log = file0.readlines()
                 rec = 0
@@ -161,7 +163,7 @@ for M in sizes:
                     else:
                         proc = Runner + ' ' + str(M) + ' 0 0 BENCHMARK >>' + logf + ' 2>' + errf
                     if (M * N + N * K + M * K) * 8 < 8e9:
-                        process = subprocess.run(args=proc, shell=True, check=True)
+                        process = subprocess.call(proc, shell=True)
                 #process = subprocess.run(args=GPU_only, shell=True, check=True)
 for logf in logfile:
     with open(logf, "r") as file0:
