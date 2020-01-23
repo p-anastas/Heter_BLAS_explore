@@ -36,3 +36,39 @@ Copying 9000 bytes from host...to host
 bandwidth(9000) benchmarked sucsessfully t = 0.011205 ms ( 0.803 Gb/s 0.000000001244978 s/byte)
 Copying 10000 bytes from host...to host
 bandwidth(10000) benchmarked sucsessfully t = 0.011366 ms ( 0.880 Gb/s 0.000000001136640 s/byte)
+Copying 110 bytes from host...to host
+bandwidth(110) benchmarked sucsessfully t = 0.008078 ms ( 0.014 Gb/s 0.000000073437087 s/byte)
+Copying 120 bytes from host...to host
+bandwidth(120) benchmarked sucsessfully t = 0.007916 ms ( 0.015 Gb/s 0.000000065962668 s/byte)
+Copying 130 bytes from host...to host
+bandwidth(130) benchmarked sucsessfully t = 0.007455 ms ( 0.017 Gb/s 0.000000057344003 s/byte)
+Copying 140 bytes from host...to host
+bandwidth(140) benchmarked sucsessfully t = 0.007546 ms ( 0.019 Gb/s 0.000000053901716 s/byte)
+Copying 150 bytes from host...to host
+bandwidth(150) benchmarked sucsessfully t = 0.007885 ms ( 0.019 Gb/s 0.000000052565332 s/byte)
+Copying 160 bytes from host...to host
+bandwidth(160) benchmarked sucsessfully t = 0.007936 ms ( 0.020 Gb/s 0.000000049600003 s/byte)
+Copying 170 bytes from host...to host
+bandwidth(170) benchmarked sucsessfully t = 0.007905 ms ( 0.022 Gb/s 0.000000046501648 s/byte)
+Copying 180 bytes from host...to host
+bandwidth(180) benchmarked sucsessfully t = 0.007928 ms ( 0.023 Gb/s 0.000000044042668 s/byte)
+Copying 190 bytes from host...to host
+bandwidth(190) benchmarked sucsessfully t = 0.007924 ms ( 0.024 Gb/s 0.000000041707790 s/byte)
+Copying 210 bytes from host...to host
+bandwidth(210) benchmarked sucsessfully t = 0.007926 ms ( 0.026 Gb/s 0.000000037741714 s/byte)
+Copying 220 bytes from host...to host
+bandwidth(220) benchmarked sucsessfully t = 0.007720 ms ( 0.028 Gb/s 0.000000035092364 s/byte)
+Copying 230 bytes from host...to host
+bandwidth(230) benchmarked sucsessfully t = 0.007917 ms ( 0.029 Gb/s 0.000000034423651 s/byte)
+Copying 240 bytes from host...to host
+bandwidth(240) benchmarked sucsessfully t = 0.007596 ms ( 0.032 Gb/s 0.000000031650668 s/byte)
+Copying 250 bytes from host...to host
+bandwidth(250) benchmarked sucsessfully t = 0.007936 ms ( 0.032 Gb/s 0.000000031744002 s/byte)
+Copying 260 bytes from host...to host
+bandwidth(260) benchmarked sucsessfully t = 0.007557 ms ( 0.034 Gb/s 0.000000029065845 s/byte)
+Copying 270 bytes from host...to host
+bandwidth(270) benchmarked sucsessfully t = 0.007585 ms ( 0.036 Gb/s 0.000000028093630 s/byte)
+Copying 280 bytes from host...to host
+bandwidth(280) benchmarked sucsessfully t = 0.007924 ms ( 0.035 Gb/s 0.000000028299430 s/byte)
+Copying 290 bytes from host...to host
+bandwidth(290) benchmarked sucsessfully t = 0.007893 ms ( 0.037 Gb/s 0.000000027216551 s/byte)

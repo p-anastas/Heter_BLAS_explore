@@ -6,6 +6,7 @@ import scipy as sc
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from bandwidth_functions import t_copy_vec_1d, t_copy_vec_2d
+from transpose_functions import t_dtranspose
 
 machine = 'dungani'
 resDir = 'Results_' + machine + '/'
@@ -14,21 +15,14 @@ resDir = 'Results_' + machine + '/'
 bounds = [1e4,1e5,1e6,8e9]
 flop_bounds = [1e6,1e7,1e8,1e9,8e9]
 
-with open(resDir + 'bandwidth_log_' + machine + '.md_sorted', "r") as file0:
-    bw_db = file0.readlines()
-
 with open(resDir + 'daxpy_log_' + machine + '.md_sorted', "r") as file0:
     add_db = file0.readlines()
-
-with open(resDir + 'transpose_log_' + machine + '.md', "r") as file0:
-    trans_db = file0.readlines()
 
 with open(resDir + 'CPU_only_log_' + machine + '.md_sorted', "r") as file0:
     cpu_gemm_db = file0.readlines()
 
 with open(resDir + 'GPU_only_log_' + machine + '.md_sorted', "r") as file0:
     gpu_gemm_db = file0.readlines()
-
 
 def report_bandwidth(bytes):
     cpu_to_gpu_time = t_copy_vec_1d(bytes, -1, 0,8)
@@ -102,117 +96,6 @@ def linearize_dadd():
         linear_subparts.append(model.predict)
         prev_bound = bound
     return linear_subparts
-
-
-def linearize2d_transpose():
-    if  len(trans_db) == 0:
-        sys.exit('Error: transpose benchmark not found')
-    time = [0]
-    elems = [[0,0]]
-    for line in trans_db:
-        temp = line.split(',')
-        if True: #temp[-1] != 'synth\n':
-           if not (elems[-1][0] == int(temp[0]) and elems[-1][1] == int(temp[1])):
-                 time.append(float(temp[2]))
-                 elems.append([int(temp[0]),int(temp[1])] )
-           else:
-                 print('Duplicate entry found for N=%d M=%d' % (elems[-1][0], elems[-1][1]))
-    prev_bound = 0
-    linear_subparts=[]
-    for bound in bounds:
-        bounded_times = []
-        bounded_N = []
-        for qN, qtime in zip(elems, time):
-            if (qN[0]*qN[1] < bound and qN[0]*qN[1] >= prev_bound):
-                bounded_N.append(qN)
-                bounded_times.append(qtime)
-        x = np.array(bounded_N).reshape(-1, 2)
-        y = np.array(bounded_times)
-        model = LinearRegression(n_jobs=-1).fit(x,y)
-        r_sq = model.score(x, y)
-        print('coefficient of determination:', r_sq)
-        if model.intercept_ < 0:
-             print('Negative intercept:', model.intercept_)
-             model.intercept_ = 0
-        print('coef:', model.coef_)
-        print('slope:', model.coef_)
-        linear_subparts.append(model.predict)
-        prev_bound = bound
-    return linear_subparts
-    #from scipy.interpolate import LinearNDInterpolator
-    #f = LinearNDInterpolator(elems, time)
-    #return f
-
-def linearize_transpose():
-    if  len(trans_db) == 0:
-        sys.exit('Error: transpose benchmark not found')
-    time = []
-    flops = []
-    for line in trans_db:
-        temp = line.split(',')
-        if True: #temp[-1] != 'synth\n':
-           if not (int(temp[0])*int(temp[1]) in flops):
-                 time.append(float(temp[2]))
-                 flops.append(int(temp[0])*int(temp[1]) )
-           else:
-                 print('Duplicate entry found for N=%d M=%d' % (int(temp[0]),  int(temp[1])))
-    prev_bound = 0
-    linear_subparts=[]
-    for bound in bounds:
-        bounded_times = []
-        bounded_flops = []
-        for qflop, qtime in zip(flops, time):
-            if (qflop < bound and qflop >= prev_bound):
-                bounded_flops.append(qflop)
-                bounded_times.append(qtime)
-        x = np.array(bounded_flops).reshape(-1, 1)
-        y = np.array(bounded_times)
-        if len(x) != 0:
-            model = LinearRegression(n_jobs=-1).fit(x,y)
-            r_sq = model.score(x, y)
-            print('coefficient of determination:', r_sq)
-            if model.intercept_ < 0:
-                 print('Negative intercept:', model.intercept_)
-                 model.intercept_ = 0
-            if model.coef_ < 0:
-                 print('Coef is Negattive !!!!')
-            print('coef:', model.coef_)
-            print('slope:', model.coef_)
-            linear_subparts.append(model.predict)
-        else:
-            print('No benchmarks found for bound %d' %bound)
-            linear_subparts.append(lambda x: float('inf'))
-        prev_bound = bound
-    return linear_subparts
-
-f_transpose_bound_regresion_2d = linearize2d_transpose()
-def t_dtranspose(X,Y):
-    if (X <1  or Y < 1):
-        return 0
-    else:
-        #Hack for our own transpose
-        if X > Y:
-            swap = X
-            X = Y
-            Y = swap
-        ctr = 0
-        for bound in bounds:
-            if X*Y < bound:
-                return f_transpose_bound_regresion_2d[ctr](np.array([X,Y]).reshape(-1, 2))
-            ctr +=1
-        return f_transpose_bound_regresion_2d[ctr-1](np.array([X,Y]).reshape(-1, 2))
-
-f_transpose_bound_regresion = linearize_transpose()
-def t_dtranspose_lin(X):
-    if (X <1):
-        return 0
-    else:
-        ctr = 0
-        for bound in bounds:
-            if X < bound:
-                return f_transpose_bound_regresion[ctr](np.array(X).reshape(-1, 1))
-            ctr +=1
-        return f_transpose_bound_regresion[ctr-1](np.array(X).reshape(-1, 1))
 
 def t_cpu_gemm():
     if  len(cpu_gemm_db) == 0:
@@ -438,7 +321,7 @@ def Impl_M_split(M_split, M, N, K, A_mem, B_mem, C_mem, elem_size):
     t_transfer_C = t_copy_vec_2d(C_dim1, C_dim2, ldim, -1, 0, elem_size)
 
     t_gpu_overhead = t_transfer_A + t_transfer_B + t_transfer_C + t_get_C
-    t_cpu_overhead =  (1 - C_mem) * 2*t_dtranspose_lin(M_gpu*N)#(t_dtranspose(M_gpu, N) + t_dtranspose(N, M_gpu))
+    t_cpu_overhead =  (1 - C_mem) * (t_dtranspose(M_gpu, N) + t_dtranspose(N, M_gpu))
     t_total_M_split = t_gpu_overhead + t_cpu_overhead + \
         max(t_dgemm_gpu(M_gpu, N, K), t_dgemm_cpu(M_cpu, N, K))# max(t_dgemm_gpu_lin(M_gpu*N*K), t_dgemm_cpu_lin(M_cpu*N*K)) #
     #print(M_split, t_total_M_split)
@@ -469,7 +352,7 @@ def Impl_N_split(N_split, M, N, K, A_mem, B_mem, C_mem, elem_size):
     t_transfer_C = t_copy_vec_2d(C_dim1, C_dim2, ldim, -1, 0, elem_size)
 
     t_gpu_overhead = t_transfer_A + t_transfer_B + t_transfer_C + t_get_C
-    t_cpu_overhead =  (1 - C_mem) *  2*t_dtranspose_lin(M*N_gpu)#(t_dtranspose(M, N_gpu) + t_dtranspose(N_gpu, M))
+    t_cpu_overhead =  (1 - C_mem) *  (t_dtranspose(M, N_gpu) + t_dtranspose(N_gpu, M))
     t_total_N_split = t_gpu_overhead + t_cpu_overhead +  max(t_dgemm_gpu(M, N_gpu, K), t_dgemm_cpu(M, N_cpu, K))#max(t_dgemm_gpu_lin(M*N_gpu*K), t_dgemm_cpu_lin(M*N_cpu*K))#
     #print(N_split, t_total_N_split)
     return t_total_N_split
@@ -495,7 +378,7 @@ def Impl_K_split(K_split, M, N, K, A_mem, B_mem, C_mem, elem_size):
     if K_gpu > 0:
         t_get_C = t_copy_vec_2d(C_dim1, C_dim2, ldim, 0, -1, elem_size)
         t_transfer_C = t_copy_vec_2d(C_dim1, C_dim2, ldim, -1, 0, elem_size)
-        t_cpu_overhead = t_add_vec_1d(M * N, elem_size) + (1 - C_mem) * 2*t_dtranspose_lin(M*N) #(t_dtranspose(M, N) + t_dtranspose(N, M))  
+        t_cpu_overhead = t_add_vec_1d(M * N, elem_size) + (1 - C_mem) * (t_dtranspose(M, N) + t_dtranspose(N, M))  
     else:
         t_transfer_C = t_get_C = t_cpu_overhead = 0
     t_gpu_overhead = t_transfer_A + t_transfer_B + t_transfer_C + t_get_C
@@ -620,12 +503,12 @@ proc = 'echo "' + Runner + ' ' + str(int(answer.x[0])) + ' 0 0 BENCHMARK" > ' + 
 if (M * N + N * K + M * K) * 8 < 8e9:
     process = subprocess.call(proc, shell=True)
 
-print('Predicted N_split(%d,%d,%d): %d -> t = %.5lf ms' % (M,N,K, int(answer1.x[0]) , answer1.fun[0]))
+print('Predicted N_split(%d,%d,%d): %d -> t = %.5lf ms (gemm_cpu=%.5lf ms, gemm_gpu=%.5lf ms)' % (M,N,K, int(answer1.x[0]) , answer1.fun[0], t_dgemm_cpu(M,N - int(answer1.x[0]),K), t_dgemm_gpu(M,int(answer1.x[0]),K)))
 proc = 'echo "' + Runner + ' 0 ' + str(int(answer1.x[0])) + ' 0 BENCHMARK" >> ' + outfile
 if (M * N + N * K + M * K) * 8 < 8e9:
     process = subprocess.call(proc, shell=True)
 
-print('Predicted K_split(%d,%d,%d): %d -> t = %.5lf ms' % (M,N,K, int(answer2.x[0]) , answer2.fun[0]))
+print('Predicted K_split(%d,%d,%d): %d -> t = %.5lf ms (gemm_cpu=%.5lf ms, gemm_gpu=%.5lf ms)' % (M,N,K, int(answer2.x[0]) , answer2.fun[0], t_dgemm_cpu(M,N, K - int(answer2.x[0])), t_dgemm_gpu(M,N,int(answer2.x[0]))))
 proc = 'echo "' + Runner + ' 0 0 ' + str(int(answer2.x[0])) + ' BENCHMARK" >> ' + outfile
 if (M * N + N * K + M * K) * 8 < 8e9:
     process = subprocess.call(proc, shell=True)

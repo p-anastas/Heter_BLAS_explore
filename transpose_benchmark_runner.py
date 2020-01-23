@@ -9,7 +9,7 @@ def comp_accuracy(X, Y, error):
     return False
 
 
-machine = 'dungani'
+machine = 'gold1'
 resDir = 'Results_' + machine + '/'
 if not os.path.exists(resDir):
     os.mkdir(resDir)
