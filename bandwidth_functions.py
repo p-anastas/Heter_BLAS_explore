@@ -11,7 +11,7 @@ from general_functions import initialize,LinearRegression_1d
 # For now use artificial bound to check
 bounds = [1e5,1e6,8e9]
 
-resDir, bw_file, _ = initialize()
+resDir, bw_file, _, _, _, _ = initialize()
 
 with open(bw_file, "r") as file0:
     bw_db = file0.readlines()
@@ -19,8 +19,8 @@ with open(bw_file, "r") as file0:
 def read_bw_file(bw_file,src,dest):
     if  len(bw_db) == 0:
         sys.exit('Error: Bandwidth benchmark not found')
-    time = []
-    bytes = []
+    time = [0]
+    bytes = [0]
     for line in bw_db:
         temp = line.split(',')
         if int(temp[1]) == src and int(temp[2]) == dest and temp[-1]!='synth\n':
@@ -48,10 +48,8 @@ def interpolated_transfer_from_gpu():
     return f
 
 def linearized_memcpy(bytes, src, dest):
-    if (bytes < 1):
-        return 0
     # For now only for dev0 <-> host
-    elif (src == -1 and dest == 0):
+    if (src == -1 and dest == 0):
         f_send_bound_regresion = linearize_cpu_to_gpu()
         ctr = 0
         for bound in bounds:
@@ -70,10 +68,8 @@ def linearized_memcpy(bytes, src, dest):
         return f_recv_bound_regresion[-1](np.array(bytes).reshape(-1, 1))
 
 def interpolated_memcpy(bytes, src, dest):
-    if (bytes < 1):
-        return 0
     # For now only for dev0 <-> host
-    elif (src == -1 and dest == 0):
+    if (src == -1 and dest == 0):
         f_send_inter_linear = interpolated_transfer_to_gpu()
         return f_send_inter_linear(bytes)
     elif (src == 0 and dest == -1):
@@ -82,6 +78,8 @@ def interpolated_memcpy(bytes, src, dest):
 
 # Wrapper for easy use
 def t_memcpy(bytes, src, dest):
+    if (bytes < 1):
+        return 0
     #return interpolated_memcpy(bytes, src, dest)
     return linearized_memcpy(bytes, src, dest)
 
