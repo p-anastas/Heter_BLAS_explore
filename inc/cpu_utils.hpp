@@ -21,6 +21,7 @@ double Drandom(double min, double max);
 size_t Svec_diff(float* a, float* b, size_t size);
 int Sequals(float a, float b);
 size_t Dvec_diff(double* a, double* b, size_t size, double eps);
+double Derror(double a, double b);
 int Dequals(double a, double b, double eps);
 float* Svec_init_host(size_t size, float val);
 double* Dvec_init_host(size_t size, double val);

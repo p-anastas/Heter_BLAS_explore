@@ -9,7 +9,7 @@ from scipy.interpolate import interp1d
 from general_functions import initialize, LinearRegression_1d, LinearRegression_2d
 
 # For now use artificial bound to check
-flop_bounds = [1e5,1e6,1e7,8e9]
+flop_bounds = [1e5,1e6,1e7,1e8,8e9]
 
 resDir, _, trans_file, _, _, _ = initialize()
 
@@ -31,8 +31,14 @@ def read_trans_file(trans_file):
 
 def interpolate1d_transpose():
     (elems, time) = read_trans_file(trans_file)
-    flops = list(map(lambda x: x[0]*x[1], elems))
-    return interp1d(flops, time, kind='linear')
+    flops = []
+    time_1d = []
+    for de,dt in zip(elems, time):
+       if not (int(de[0])*int(de[1]) in flops):
+           time_1d.append(dt)
+           flops.append(int(de[0])*int(de[1]))
+    flops, time_1d = zip(*sorted(zip(flops, time_1d), key = lambda x: x[0]))
+    return interp1d(flops, time_1d, kind='linear')
 
 def linearize2d_transpose():
     (elems, time) = read_trans_file(trans_file)
@@ -40,8 +46,18 @@ def linearize2d_transpose():
 
 def linearize_transpose():
     (elems, time) = read_trans_file(trans_file)
-    flops = list(map(lambda x: x[0]*x[1], elems))
-    return LinearRegression_1d(flops,time,flop_bounds)
+    flops = []
+    time_1d = []
+    for de,dt in zip(elems, time):
+       if not (int(de[0])*int(de[1]) in flops):
+           time_1d.append(dt)
+           flops.append(int(de[0])*int(de[1]))
+    flops, time_1d = zip(*sorted(zip(flops, time_1d), key = lambda x: x[0]))
+    return LinearRegression_1d(flops,time_1d,flop_bounds)
+
+f_transpose_bound_regresion_2d = linearize2d_transpose()
+f_transpose_bound_regresion = linearize_transpose()
+f_transpose_interpolated = interpolate1d_transpose()
 
 def linearized2d_dtranspose(X,Y):
     #Hack for our own transpose
@@ -49,7 +65,7 @@ def linearized2d_dtranspose(X,Y):
         swap = X
         X = Y
         Y = swap
-    f_transpose_bound_regresion_2d = linearize2d_transpose()
+    #f_transpose_bound_regresion_2d = linearize2d_transpose()
     ctr = 0
     for bound in flop_bounds:
         if X*Y < bound:
@@ -58,7 +74,7 @@ def linearized2d_dtranspose(X,Y):
     return f_transpose_bound_regresion_2d[ctr-1](np.array([X,Y]).reshape(-1, 2))
 
 def linearized1d_dtranspose(X):
-    f_transpose_bound_regresion = linearize_transpose()
+    #f_transpose_bound_regresion = linearize_transpose()
     ctr = 0
     for bound in flop_bounds:
         if X < bound:
@@ -67,7 +83,7 @@ def linearized1d_dtranspose(X):
     return f_transpose_bound_regresion[ctr-1](np.array(X).reshape(-1, 1))
 
 def interpolated1d_dtranspose(X):
-    f_transpose_interpolated = interpolate1d_transpose()
+    #f_transpose_interpolated = interpolate1d_transpose()
     return f_transpose_interpolated(X)
 
 
@@ -76,7 +92,7 @@ def interpolated1d_dtranspose(X):
 def t_dtranspose(X,Y):
     if (X <1  or Y < 1):
         return 0
-    return interpolated1d_dtranspose(X*Y)/10
-    #return linearized2d_dtranspose(X, Y)
+    #return interpolated1d_dtranspose(X*Y)
+    return 0#linearized2d_dtranspose(X, Y)
     #return linearized1d_dtranspose(X*Y)
 

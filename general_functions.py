@@ -42,8 +42,8 @@ def Bound_LinearRegression_1d(X_list,Y_list,lower_bound, upper_bound):
         model = LinearRegression(n_jobs=-1).fit(x,y)
         #r_sq = model.score(x, y)
         #print('coefficient of determination:', r_sq)
-        if model.intercept_ < 0:
-            print('Negative intercept...ignoring:', model.intercept_)
+        #if model.intercept_ < 0:
+            #print('Negative intercept...ignoring:', model.intercept_)
             #model.intercept_ = 0
         if model.coef_ < 0:
             print('Negative coef...danger:', model.coef_)

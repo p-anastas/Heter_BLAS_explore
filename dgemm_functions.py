@@ -9,7 +9,7 @@ from scipy.interpolate import interp1d,LinearNDInterpolator
 from general_functions import initialize,LinearRegression_1d,LinearRegression_3d
 
 # For now use artificial bound to check
-flop_bounds = [1e6,1e7,1e8,8e9]
+flop_bounds = [1e7,1e8,1e9,1e10,1e11]
 
 resDir, _, _, cpugemmfile, gpugemmfile, _ = initialize()
 
@@ -18,6 +18,7 @@ with open(cpugemmfile, "r") as file0:
 
 with open(gpugemmfile, "r") as file0:
     gpu_gemm_db = file0.readlines()
+
 
 def read_cpu_file(cpugemmfile):
     if  len(cpu_gemm_db) == 0:
@@ -49,17 +50,42 @@ def interpolate3d_cpu_gemm():
     (elems, time) = read_cpu_file(cpugemmfile)
     return LinearNDInterpolator(elems, time)
 
-def interpolate3d_cpu_dgemm(M,N,K):
-    f_cpu_gemm_interpolated = interpolate3d_cpu_gemm()
-    return f_cpu_gemm_interpolated([M,N,K])
-
 def linearize1d_cpu_gemm():
     (elems, time) = read_cpu_file(cpugemmfile)
     flops = list(map(lambda x: x[0]*x[1]*x[2], elems))
     return LinearRegression_1d(flops,time,flop_bounds)
 
+def linearize3d_cpu_gemm():
+    (elems, time) = read_cpu_file(cpugemmfile)
+    return LinearRegression_3d(elems,time,flop_bounds)
+
+def interpolate3d_gpu_gemm():
+    (elems, time) = read_gpu_file(gpugemmfile)
+    return LinearNDInterpolator(elems, time)
+
+def linearize1d_gpu_gemm():
+    (elems, time) = read_gpu_file(gpugemmfile)
+    flops = list(map(lambda x: x[0]*x[1]*x[2], elems))
+    return LinearRegression_1d(flops,time,flop_bounds)
+
+def linearize3d_gpu_gemm():
+    (elems, time) = read_cpu_file(gpugemmfile)
+    return LinearRegression_3d(elems,time,flop_bounds)
+
+# Gather here to avoid repetition 
+f_cpu_gemm_interpolated = interpolate3d_cpu_gemm()
+f_cpu_gemm_bound_regression1d = linearize1d_cpu_gemm()
+f_cpu_gemm_bound_regression3d = linearize3d_cpu_gemm()
+f_gpu_gemm_interpolated = interpolate3d_gpu_gemm()
+f_gpu_gemm_bound_regression = linearize1d_gpu_gemm()
+f_gpu_gemm_bound_regression3d = linearize3d_gpu_gemm()
+
+def interpolate3d_cpu_dgemm(M,N,K):
+    #f_cpu_gemm_interpolated = interpolate3d_cpu_gemm()
+    return f_cpu_gemm_interpolated([M,N,K])
+
 def linearize1d_cpu_dgemm(flops):
-    f_cpu_gemm_bound_regression1d = linearize1d_cpu_gemm()
+    #f_cpu_gemm_bound_regression1d = linearize1d_cpu_gemm()
     ctr = 0
     for bound in flop_bounds:
         if flops < bound:
@@ -67,12 +93,8 @@ def linearize1d_cpu_dgemm(flops):
         ctr +=1
     return f_cpu_gemm_bound_regression1d[ctr-1](np.array(flops).reshape(-1, 1))
 
-def linearize3d_cpu_gemm():
-    (elems, time) = read_cpu_file(cpugemmfile)
-    return LinearRegression_3d(elems,time,flop_bounds)
-
 def linearize3d_cpu_dgemm(M,N,K):
-    f_cpu_gemm_bound_regression3d = linearize3d_cpu_gemm()
+    #f_cpu_gemm_bound_regression3d = linearize3d_cpu_gemm()
     ctr = 0
     for bound in flop_bounds:
         if M*N*K < bound:
@@ -80,21 +102,13 @@ def linearize3d_cpu_dgemm(M,N,K):
         ctr +=1
     return f_cpu_gemm_bound_regression3d[ctr-1](np.array([M,N,K]).reshape(-1, 3))
 
-def interpolate3d_gpu_gemm():
-    (elems, time) = read_gpu_file(gpugemmfile)
-    return LinearNDInterpolator(elems, time)
-
 def interpolate3d_gpu_dgemm(M,N,K):
-    f_gpu_gemm_interpolated = interpolate3d_gpu_gemm()
+    #f_gpu_gemm_interpolated = interpolate3d_gpu_gemm()
     return f_gpu_gemm_interpolated([M,N,K])
 
-def linearize1d_gpu_gemm():
-    (elems, time) = read_gpu_file(gpugemmfile)
-    flops = list(map(lambda x: x[0]*x[1]*x[2], elems))
-    return LinearRegression_1d(flops,time,flop_bounds)
 
 def linearize1d_gpu_dgemm(flops):
-    f_gpu_gemm_bound_regression = linearize1d_gpu_gemm()
+    #f_gpu_gemm_bound_regression = linearize1d_gpu_gemm()
     ctr = 0
     for bound in flop_bounds:
         if flops < bound:
@@ -102,12 +116,8 @@ def linearize1d_gpu_dgemm(flops):
         ctr +=1
     return f_gpu_gemm_bound_regression[ctr-1](np.array(flops).reshape(-1, 1))
 
-def linearize3d_gpu_gemm():
-    (elems, time) = read_cpu_file(gpugemmfile)
-    return LinearRegression_3d(elems,time,flop_bounds)
-
 def linearize3d_gpu_dgemm(M,N,K):
-    f_gpu_gemm_bound_regression3d = linearize3d_gpu_gemm()
+    #f_gpu_gemm_bound_regression3d = linearize3d_gpu_gemm()
     ctr = 0
     for bound in flop_bounds:
         if M*N*K < bound:

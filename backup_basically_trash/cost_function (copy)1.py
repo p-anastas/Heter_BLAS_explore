@@ -8,7 +8,6 @@ from sklearn.preprocessing import PolynomialFeatures
 from bandwidth_functions import t_copy_vec_1d, t_copy_vec_2d
 from transpose_functions import t_dtranspose
 from dgemm_functions import t_dgemm_cpu, t_dgemm_gpu
-from buffer_datatype import *
 
 machine = 'dungani'
 resDir = 'Results_' + machine + '/'
@@ -136,23 +135,22 @@ def Impl_split(kernel_dims, M, N, K, A_mem, B_mem, C_mem, elem_size, printflag):
     N_kernels = len(kernel_dims)
     t_bus = t_reduce = t_ker_gpu = remainder = sent_A = sent_B = 0   
     for kernel_id in range(N_kernels):
-        M1, N1, K1, _, _, _ = kernel_dims[kernel_id]
+        M1, N1, K1 = kernel_dims[kernel_id]
         temp_A, temp_B = elems_send(M1, N1, K1, M, N, K, A_mem, B_mem, C_mem, elem_size, printflag)
         sent_A += temp_A
         sent_B += temp_B
-        if sent_A > M * K and sent_B > N * K:
+        if sent_A > M * K and sent_B > M * K:
             t_bus += t_bus_recv(M1, N1, M, N, C_mem, elem_size,printflag)
         elif sent_A > M * K:
             t_bus += t_bus_send(0, N1, K1, M, N, K, A_mem, B_mem, C_mem, elem_size, printflag) + t_bus_recv(M1, N1, M, N, C_mem, elem_size,printflag)
-        elif sent_B > N * K:
+        elif sent_B > M * K:
             t_bus += t_bus_send(M1, 0, K1, M, N, K, A_mem, B_mem, C_mem, elem_size, printflag) + t_bus_recv(M1, N1, M, N, C_mem, elem_size,printflag)
         else:
-            sent = t_bus_send(M1, N1, K1, M, N, K, A_mem, B_mem, C_mem, elem_size, printflag)
-            t_bus +=  sent + t_bus_recv(M1, N1, M, N, C_mem, elem_size,printflag)
+            t_bus += t_bus_send(M1, N1, K1, M, N, K, A_mem, B_mem, C_mem, elem_size, printflag) + t_bus_recv(M1, N1, M, N, C_mem, elem_size,printflag)
         t_reduce += t_cpu_reduce(M1, N1, M, N, C_mem, elem_size, printflag)
         t_ker_gpu +=  t_dgemm_gpu(M1, N1, K1)
         if ( kernel_id == 0 ): 
-            t_ker_gpu +=  sent
+            t_ker_gpu +=  t_bus_send(M1, N1, K1, M, N, K, A_mem, B_mem, C_mem, elem_size, printflag)
             t_reduce += t_ker_gpu
         if ( kernel_id ==N_kernels -1 ): 
             t_last = t_cpu_reduce(M1, N1, M, N, C_mem, elem_size, printflag)
@@ -243,9 +241,9 @@ def recomended_split_dim(A_mem, B_mem, C_mem):
 
 
 dtype_size = 8
-N = M = K = 5000
+N = M = K = 10000
 A_mem = 0
-B_mem = 0
+B_mem = 1
 C_mem = 0
 x = np.ndarray(1)
 x[0]=0
@@ -301,31 +299,7 @@ int_Brute_solution(Impl_K_split, M, N, K, A_mem, B_mem, C_mem, dtype_size,0, K)
 #    process = subprocess.call(proc, shell=True)
 
 recomended_split_dim(A_mem, B_mem, C_mem)
+M = 9500
+Impl_split([(M/4,N/4,K),(M/4,N*3/4,K),(M/4,N,K),(M/2,N/2,K),(M/2,N/2,K)], M, N, K, A_mem, B_mem, C_mem, dtype_size, True)
 
-Impl_split([(int(M/4),int(N/4),int(K/2), 0, 0 ,0),(int(M/4),int(N/4),int(K/2), 0, 0 ,int(K/2)),(int(M/4),int(N*3/4),int(K), 0, int(N/4), 0),(int(M/4),int(N),int(K), int(M/4), 0, 0),(int(M/2),int(N/2),int(K), int(M/2), 0 , 0),(int(M/2),int(N/2),int(K), int(M/2), int(N/2), 0)], M, N, K, A_mem, B_mem, C_mem, dtype_size, True)
-
-def Impl_split_(kernel_dims, M, N, K, A_mem, B_mem, C_mem, elem_size, printflag):
-    N_kernels = len(kernel_dims)
-    t_bus = t_reduce = t_ker_gpu = remainder = sent_A = sent_B = 0   
-    My_buffers = gemm_buffers(M,N,K, A_mem, B_mem, C_mem)
-    My_buffers.allocate_host()
-    My_buffers.allocate_device()
-    My_buffers.initialize()
-    for kernel_id in range(N_kernels):
-        M1, N1, K1, off_M1, off_N1, off_K1 = kernel_dims[kernel_id]
-        sent = t_bus_send_kernel_data(M1, N1, K1, off_M1, off_N1, off_K1, My_buffers, printflag)
-        t_bus +=  sent + t_bus_recv_kernel_data(M1, N1, off_M1, off_N1, My_buffers,printflag)
-        t_reduce += t_cpu_reduce(M1, N1, M, N, C_mem, elem_size, printflag)
-        t_ker_gpu +=  t_dgemm_gpu(M1, N1, K1)
-        if ( kernel_id == 0 ): 
-            t_ker_gpu +=  sent
-            t_reduce += t_ker_gpu
-        if ( kernel_id ==N_kernels -1 ): 
-            t_last = t_cpu_reduce(M1, N1, M, N, C_mem, elem_size, printflag)
-    t_total_split = max (t_bus, t_reduce, t_ker_gpu) + t_last
-    #print(M_split, t_total_M_split)
-    if printflag:
-        print('Impl_split of (%d,%d,%d) with dims(%d,%d,%d) elem_sz=%d: t_total = %.5lf (t_bus = %.5lf, t_reduce = %.5lf, t_ker_gpu = %.5lf)' % ( M, N, K, A_mem, B_mem, C_mem, elem_size, t_total_split, t_bus, t_reduce, t_ker_gpu))
-    return t_total_split
-Impl_split_([(int(M/4),int(N/4),int(K/2), 0, 0 ,0),(int(M/4),int(N/4),int(K/2), 0, 0 ,int(K/2)),(int(M/4),int(N*3/4),int(K), 0, int(N/4), 0),(int(M/4),int(N),int(K), int(M/4), 0, 0),(int(M/2),int(N/2),int(K), int(M/2), 0 , 0),(int(M/2),int(N/2),int(K), int(M/2), int(N/2), 0)], M, N, K, A_mem, B_mem, C_mem, dtype_size, True)
 

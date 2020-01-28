@@ -9,18 +9,19 @@ def comp_accuracy(X, Y, error):
     return False
 
 
-machine = 'gold1'
+machine = 'dungani'
 resDir = 'Results_' + machine + '/'
 if not os.path.exists(resDir):
     os.mkdir(resDir)
 
-sizes = list(range(100, 1000, 10))
-sizes.extend(list(range(1000, 10000, 100)))
-sizes.extend(list(range(10000, 100000, 1000)))
-sizes.extend(list(range(100000, 1000000, 10000)))
-sizes.extend(list(range(1000000, 10000000, 1000000)))
-sizes.extend(list(range(10000000, 100000000, 10000000)))
-sizes.extend(list(range(100000000, 1000000000, 100000000)))
+#sizes = list(range(100, 1000, 10))
+#sizes.extend(list(range(1000, 10000, 100)))
+#sizes.extend(list(range(10000, 100000, 1000)))
+#sizes.extend(list(range(100000, 1000000, 10000)))
+#sizes.extend(list(range(1000000, 10000000, 1000000)))
+#sizes.extend(list(range(10000000, 100000000, 10000000)))
+#sizes.extend(list(range(100000000, 1000000000, 100000000)))
+sizes = [10000001]
 # print(sizes)
 benchmark_skip_error = 0.1
 benchmark_recursive_depth = 5

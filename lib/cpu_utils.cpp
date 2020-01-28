@@ -73,10 +73,15 @@ size_t Svec_diff(float* a, float* b, size_t size) {
   return failed;
 }
 
+double dabs(double x){
+	if (x < 0) return -x;
+	else return x;
+}
+
 int Sequals(float a, float b) {
-  float absA = abs(a);
-  float absB = abs(b);
-  float diff = abs(a - b);
+  float absA = dabs(a);
+  float absB = dabs(b);
+  float diff = dabs(a - b);
 
   if (a == b) {  // shortcut, handles infinities
     return 1;
@@ -102,10 +107,16 @@ size_t Dvec_diff(double* a, double* b, size_t size, double eps) {
   return failed;
 }
 
+double Derror(double a, double b) {
+  if (a == 0) return dabs(a - b); 
+  return dabs(a - b)/a;
+}
+
+
 int Dequals(double a, double b, double eps) {
-  double absA = abs(a);
-  double absB = abs(b);
-  double diff = abs(a - b);
+  double absA = dabs(a);
+  double absB = dabs(b);
+  double diff = dabs(a - b);
 
   if (a == b) {  // shortcut, handles infinities
     return 1;

@@ -9,7 +9,7 @@ from scipy.interpolate import interp1d
 from general_functions import initialize,LinearRegression_1d
 
 # For now use artificial bound to check
-bounds = [1e5,1e6,8e9]
+bounds = [1e5,1e6,1e7,8e9]
 
 resDir, bw_file, _, _, _, _ = initialize()
 
@@ -24,8 +24,17 @@ def read_bw_file(bw_file,src,dest):
     for line in bw_db:
         temp = line.split(',')
         if int(temp[1]) == src and int(temp[2]) == dest and temp[-1]!='synth\n':
-             time.append(float(temp[3]))
-             bytes.append(int(temp[0]))
+             if temp[-1]!='bound_0\n' and temp[-1]!='bound_1\n' and temp[-1]!='bound_2\n':
+                 time.append(float(temp[3]))
+                 bytes.append(int(temp[0]))
+             else: 
+                 if temp[-1]=='bound_0\n':
+                     bounds[0] = int(temp[0])
+                 elif temp[-1]=='bound_1\n':
+                     bounds[1] = int(temp[0])
+                 elif temp[-1]=='bound_2\n':
+                     bounds[2] = int(temp[0])
+                 #print("Bound found src=%d, dest=%d Bound=%d" % (src,dest,int(temp[0])))
     xysorted = sorted(zip(bytes,time), key= lambda x: x[0])
     return  ([x for x,_ in xysorted], [y for _,y in xysorted])
 
@@ -47,33 +56,39 @@ def interpolated_transfer_from_gpu():
     f = interp1d(bytes, time, kind='linear')
     return f
 
+f_send_bound_regresion = linearize_cpu_to_gpu()
+f_recv_bound_regresion =  linearize_gpu_to_cpu()
+f_send_inter_linear = interpolated_transfer_to_gpu()
+f_recv_inter_linear = interpolated_transfer_from_gpu()
+
+
 def linearized_memcpy(bytes, src, dest):
     # For now only for dev0 <-> host
     if (src == -1 and dest == 0):
-        f_send_bound_regresion = linearize_cpu_to_gpu()
+        #f_send_bound_regresion = linearize_cpu_to_gpu()
         ctr = 0
         for bound in bounds:
             if bytes < bound:
                 return f_send_bound_regresion[ctr](np.array(bytes).reshape(-1, 1))
             ctr +=1
-        return f_send_bound_regresion[-1](np.array(bytes).reshape(-1, 1))
+        return f_send_bound_regresion[ctr -1](np.array(bytes).reshape(-1, 1))
     elif (src == 0 and dest == -1):
-        f_recv_bound_regresion =  linearize_gpu_to_cpu()
+        #f_recv_bound_regresion =  linearize_gpu_to_cpu()
         ctr = 0
         for bound in bounds:
             if bytes < bound:
 
                 return f_recv_bound_regresion[ctr](np.array(bytes).reshape(-1, 1))
             ctr +=1
-        return f_recv_bound_regresion[-1](np.array(bytes).reshape(-1, 1))
+        return f_recv_bound_regresion[ctr -1](np.array(bytes).reshape(-1, 1))
 
 def interpolated_memcpy(bytes, src, dest):
     # For now only for dev0 <-> host
     if (src == -1 and dest == 0):
-        f_send_inter_linear = interpolated_transfer_to_gpu()
+        #f_send_inter_linear = interpolated_transfer_to_gpu()
         return f_send_inter_linear(bytes)
     elif (src == 0 and dest == -1):
-        f_recv_inter_linear = interpolated_transfer_from_gpu()
+        #f_recv_inter_linear = interpolated_transfer_from_gpu()
         return f_recv_inter_linear(bytes)
 
 # Wrapper for easy use

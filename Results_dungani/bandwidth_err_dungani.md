@@ -5714,3 +5714,186 @@ Copying 980000 bytes from device(0)...to device(0)
 bandwidth(980000) benchmarked sucsessfully t = 0.011889 ms ( 82.427 Gb/s 0.000000000012132 s/byte)
 Copying 990000 bytes from device(0)...to device(0)
 bandwidth(990000) benchmarked sucsessfully t = 0.016203 ms ( 61.101 Gb/s 0.000000000016366 s/byte)
+Allocating 1000000000 bytes to host...Allocating 10000001 bytes to host...Allocation(10000001) benchmarked successfully t = 3.472973 ms ( 2.879 Gb/s 0.000000000347297 s/byte)
+Allocating 10000001 bytes to host...Allocation(10000001) benchmarked successfully t = 2.886400 ms ( 3.465 Gb/s 0.000000000288640 s/byte)
+Copying 10000001 bytes from host...to host -> bandwidth(10000001) benchmarked successfully t = 3.751975 ms ( 2.665 Gb/s 0.000000000375197 s/byte)
+Copying 128 bytes from host...to host -> bandwidth(128) benchmarked successfully t = 0.003302 ms ( 0.039 Gb/s 0.000000025795000 s/byte)
+Constant area (64-128) timer = 0.003302 prev_timer = 0.000000 error= 1.000000
+Copying 256 bytes from host...to host -> bandwidth(256) benchmarked successfully t = 0.003255 ms ( 0.079 Gb/s 0.000000012713125 s/byte)
+Constant area (128-256) timer = 0.003255 prev_timer = 0.003302 error= 0.014503
+Copying 512 bytes from host...to host -> bandwidth(512) benchmarked successfully t = 0.003286 ms ( 0.156 Gb/s 0.000000006417563 s/byte)
+Constant area (256-512) timer = 0.003286 prev_timer = 0.003255 error= 0.009505
+Copying 1024 bytes from host...to host -> bandwidth(1024) benchmarked successfully t = 0.003361 ms ( 0.305 Gb/s 0.000000003282250 s/byte)
+Constant area (512-1024) timer = 0.003361 prev_timer = 0.003286 error= 0.022384
+Copying 2048 bytes from host...to host -> bandwidth(2048) benchmarked successfully t = 0.003623 ms ( 0.565 Gb/s 0.000000001768922 s/byte)
+Constant area (1024-2048) timer = 0.003623 prev_timer = 0.003361 error= 0.072246
+Copying 4096 bytes from host...to host -> bandwidth(4096) benchmarked successfully t = 0.004027 ms ( 1.017 Gb/s 0.000000000983273 s/byte)
+
+First bound area (2048-4096) timer = 0.004027 prev_timer = 0.003623 error= 0.100493
+Copying 2176 bytes from host...to host -> bandwidth(2176) benchmarked successfully t = 0.003642 ms ( 0.598 Gb/s 0.000000001673618 s/byte)
+Copying 2304 bytes from host...to host -> bandwidth(2304) benchmarked successfully t = 0.003777 ms ( 0.610 Gb/s 0.000000001639500 s/byte)
+Constant area bound found:  2304 timer = 0.003777 prev_timer = 0.003623 error= 0.040942
+
+Copying 8192 bytes from host...to host -> bandwidth(8192) benchmarked successfully t = 0.004726 ms ( 1.733 Gb/s 0.000000000576941 s/byte)
+Non-linear area (4096-8192) timer/2 = 0.002363 prev_timer = 0.003623 error= 0.533017
+Copying 16384 bytes from host...to host -> bandwidth(16384) benchmarked successfully t = 0.006612 ms ( 2.478 Gb/s 0.000000000403582 s/byte)
+Non-linear area (8192-16384) timer/2 = 0.003306 prev_timer = 0.004726 error= 0.429552
+Copying 32768 bytes from host...to host -> bandwidth(32768) benchmarked successfully t = 0.011418 ms ( 2.870 Gb/s 0.000000000348437 s/byte)
+Non-linear area (16384-32768) timer/2 = 0.005709 prev_timer = 0.006612 error= 0.158262
+Copying 65536 bytes from host...to host -> bandwidth(65536) benchmarked successfully t = 0.019401 ms ( 3.378 Gb/s 0.000000000296043 s/byte)
+Non-linear area (32768-65536) timer/2 = 0.009701 prev_timer = 0.011418 error= 0.176983
+Copying 131072 bytes from host...to host -> bandwidth(131072) benchmarked successfully t = 0.036009 ms ( 3.640 Gb/s 0.000000000274726 s/byte)
+
+Second bound area (65536-131072) timer/2 = 0.018004 prev_timer = 0.019401 error= 0.077592
+Copying 69632 bytes from host...to host -> bandwidth(69632) benchmarked successfully t = 0.020364 ms ( 3.419 Gb/s 0.000000000292454 s/byte)
+Checking Non-Linear area bound: timer_normalized = 0.019166 prev_timer = 0.019401 error= 0.012273
+
+Copying 73728 bytes from host...to host -> bandwidth(73728) benchmarked successfully t = 0.021384 ms ( 3.448 Gb/s 0.000000000290040 s/byte)
+Checking Non-Linear area bound: timer_normalized = 0.020196 prev_timer = 0.020364 error= 0.008322
+
+Non-Linear area bound found:  73728 timer_normalized = 0.020196 prev_timer = 0.020364 error= 0.071342
+
+Copying 262144 bytes from host...to host -> bandwidth(262144) benchmarked successfully t = 0.075005 ms ( 3.495 Gb/s 0.000000000286122 s/byte)
+Non-linear area (131072-262144) timer/2 = 0.037503 prev_timer = 0.019401 error= 0.482664
+Copying 524288 bytes from host...to host -> bandwidth(524288) benchmarked successfully t = 0.148010 ms ( 3.542 Gb/s 0.000000000282307 s/byte)
+Sub-Linear area (262144-524288) timer/2 = 0.074005 prev_timer = 0.075005 error= 0.013515
+Copying 1048576 bytes from host...to host -> bandwidth(1048576) benchmarked successfully t = 0.358908 ms ( 2.922 Gb/s 0.000000000342281 s/byte)
+Non-linear area (524288-1048576) timer/2 = 0.179454 prev_timer = 0.148010 error= 0.175220
+Copying 2097152 bytes from host...to host -> bandwidth(2097152) benchmarked successfully t = 0.711472 ms ( 2.948 Gb/s 0.000000000339256 s/byte)
+Linear area (1048576-2097152) timer/2 = 0.355736 prev_timer = 0.358908 error= 0.008917
+Allocating 10000001 bytes to host...Allocation(10000001) benchmarked successfully t = 3.915955 ms ( 2.554 Gb/s 0.000000000391596 s/byte)
+Allocating 10000001 bytes to device(0)...Allocation(10000001) benchmarked successfully t = 1.067581 ms ( 9.367 Gb/s 0.000000000106758 s/byte)
+Copying 10000001 bytes from host...to device(0) -> bandwidth(10000001) benchmarked successfully t = 6.305367 ms ( 1.586 Gb/s 0.000000000630537 s/byte)
+Copying 128 bytes from host...to device(0) -> bandwidth(128) benchmarked successfully t = 0.013950 ms ( 0.009 Gb/s 0.000000108984750 s/byte)
+Constant area (64-128) timer = 0.013950 prev_timer = 0.000000 error= 1.000000
+Copying 256 bytes from host...to device(0) -> bandwidth(256) benchmarked successfully t = 0.014082 ms ( 0.018 Gb/s 0.000000055006622 s/byte)
+Constant area (128-256) timer = 0.014082 prev_timer = 0.013950 error= 0.009349
+Copying 512 bytes from host...to device(0) -> bandwidth(512) benchmarked successfully t = 0.013995 ms ( 0.037 Gb/s 0.000000027334499 s/byte)
+Constant area (256-512) timer = 0.013995 prev_timer = 0.014082 error= 0.006176
+Copying 1024 bytes from host...to device(0) -> bandwidth(1024) benchmarked successfully t = 0.014339 ms ( 0.071 Gb/s 0.000000014003219 s/byte)
+Constant area (512-1024) timer = 0.014339 prev_timer = 0.013995 error= 0.023992
+Copying 2048 bytes from host...to device(0) -> bandwidth(2048) benchmarked successfully t = 0.014896 ms ( 0.137 Gb/s 0.000000007273422 s/byte)
+Constant area (1024-2048) timer = 0.014896 prev_timer = 0.014339 error= 0.037371
+Copying 4096 bytes from host...to device(0) -> bandwidth(4096) benchmarked successfully t = 0.016491 ms ( 0.248 Gb/s 0.000000004026102 s/byte)
+Constant area (2048-4096) timer = 0.016491 prev_timer = 0.014896 error= 0.096717
+Copying 8192 bytes from host...to device(0) -> bandwidth(8192) benchmarked successfully t = 0.020206 ms ( 0.405 Gb/s 0.000000002466555 s/byte)
+
+First bound area (4096-8192) timer = 0.020206 prev_timer = 0.016491 error= 0.183861
+Copying 4352 bytes from host...to device(0) -> bandwidth(4352) benchmarked successfully t = 0.016858 ms ( 0.258 Gb/s 0.000000003873655 s/byte)
+Constant area bound found:  4352 timer = 0.016858 prev_timer = 0.016491 error= 0.021784
+
+Copying 16384 bytes from host...to device(0) -> bandwidth(16384) benchmarked successfully t = 0.027228 ms ( 0.602 Gb/s 0.000000001661879 s/byte)
+Non-linear area (8192-16384) timer/2 = 0.013614 prev_timer = 0.016491 error= 0.211310
+Copying 32768 bytes from host...to device(0) -> bandwidth(32768) benchmarked successfully t = 0.035070 ms ( 0.934 Gb/s 0.000000001070266 s/byte)
+Non-linear area (16384-32768) timer/2 = 0.017535 prev_timer = 0.027228 error= 0.552772
+Copying 65536 bytes from host...to device(0) -> bandwidth(65536) benchmarked successfully t = 0.055713 ms ( 1.176 Gb/s 0.000000000850118 s/byte)
+Non-linear area (32768-65536) timer/2 = 0.027857 prev_timer = 0.035070 error= 0.258961
+Copying 131072 bytes from host...to device(0) -> bandwidth(131072) benchmarked successfully t = 0.096823 ms ( 1.354 Gb/s 0.000000000738701 s/byte)
+Non-linear area (65536-131072) timer/2 = 0.048411 prev_timer = 0.055713 error= 0.150829
+Copying 262144 bytes from host...to device(0) -> bandwidth(262144) benchmarked successfully t = 0.179776 ms ( 1.458 Gb/s 0.000000000685790 s/byte)
+
+Second bound area (131072-262144) timer/2 = 0.089888 prev_timer = 0.096823 error= 0.077154
+Copying 139264 bytes from host...to device(0) -> bandwidth(139264) benchmarked successfully t = 0.101918 ms ( 1.366 Gb/s 0.000000000731834 s/byte)
+Checking Non-Linear area bound: timer_normalized = 0.095923 prev_timer = 0.096823 error= 0.009383
+
+Non-Linear area bound found:  139264 timer_normalized = 0.095923 prev_timer = 0.096823 error= 0.009383
+
+Copying 524288 bytes from host...to device(0) -> bandwidth(524288) benchmarked successfully t = 0.343926 ms ( 1.524 Gb/s 0.000000000655986 s/byte)
+Non-linear area (262144-524288) timer/2 = 0.171963 prev_timer = 0.096823 error= 0.436954
+Copying 1048576 bytes from host...to device(0) -> bandwidth(1048576) benchmarked successfully t = 0.674159 ms ( 1.555 Gb/s 0.000000000642928 s/byte)
+Sub-Linear area (524288-1048576) timer/2 = 0.337079 prev_timer = 0.343926 error= 0.020311
+Copying 2097152 bytes from host...to device(0) -> bandwidth(2097152) benchmarked successfully t = 1.339028 ms ( 1.566 Gb/s 0.000000000638498 s/byte)
+Linear area (1048576-2097152) timer/2 = 0.669514 prev_timer = 0.674159 error= 0.006937
+Allocating 10000001 bytes to device(0)...Allocation(10000001) benchmarked successfully t = 1.256474 ms ( 7.959 Gb/s 0.000000000125647 s/byte)
+Allocating 10000001 bytes to host...Allocation(10000001) benchmarked successfully t = 3.225974 ms ( 3.100 Gb/s 0.000000000322597 s/byte)
+Copying 10000001 bytes from device(0)...to host -> bandwidth(10000001) benchmarked successfully t = 3.002083 ms ( 3.331 Gb/s 0.000000000300208 s/byte)
+Copying 128 bytes from device(0)...to host -> bandwidth(128) benchmarked successfully t = 0.006698 ms ( 0.019 Gb/s 0.000000052326501 s/byte)
+Constant area (64-128) timer = 0.006698 prev_timer = 0.000000 error= 1.000000
+Copying 256 bytes from device(0)...to host -> bandwidth(256) benchmarked successfully t = 0.006796 ms ( 0.038 Gb/s 0.000000026548625 s/byte)
+Constant area (128-256) timer = 0.006796 prev_timer = 0.006698 error= 0.014516
+Copying 512 bytes from device(0)...to host -> bandwidth(512) benchmarked successfully t = 0.006937 ms ( 0.074 Gb/s 0.000000013548875 s/byte)
+Constant area (256-512) timer = 0.006937 prev_timer = 0.006796 error= 0.020265
+Copying 1024 bytes from device(0)...to host -> bandwidth(1024) benchmarked successfully t = 0.006986 ms ( 0.147 Gb/s 0.000000006822281 s/byte)
+Constant area (512-1024) timer = 0.006986 prev_timer = 0.006937 error= 0.007013
+Copying 2048 bytes from device(0)...to host -> bandwidth(2048) benchmarked successfully t = 0.007248 ms ( 0.283 Gb/s 0.000000003539297 s/byte)
+Constant area (1024-2048) timer = 0.007248 prev_timer = 0.006986 error= 0.036210
+Copying 4096 bytes from device(0)...to host -> bandwidth(4096) benchmarked successfully t = 0.007884 ms ( 0.520 Gb/s 0.000000001924727 s/byte)
+Constant area (2048-4096) timer = 0.007884 prev_timer = 0.007248 error= 0.080572
+Copying 8192 bytes from device(0)...to host -> bandwidth(8192) benchmarked successfully t = 0.009123 ms ( 0.898 Gb/s 0.000000001113602 s/byte)
+
+First bound area (4096-8192) timer = 0.009123 prev_timer = 0.007884 error= 0.135810
+Copying 4352 bytes from device(0)...to host -> bandwidth(4352) benchmarked successfully t = 0.007847 ms ( 0.555 Gb/s 0.000000001803162 s/byte)
+Copying 4608 bytes from device(0)...to host -> bandwidth(4608) benchmarked successfully t = 0.007824 ms ( 0.589 Gb/s 0.000000001698021 s/byte)
+Copying 4864 bytes from device(0)...to host -> bandwidth(4864) benchmarked successfully t = 0.007969 ms ( 0.610 Gb/s 0.000000001638322 s/byte)
+Constant area bound found:  4864 timer = 0.007969 prev_timer = 0.007884 error= 0.010682
+
+Copying 16384 bytes from device(0)...to host -> bandwidth(16384) benchmarked successfully t = 0.011338 ms ( 1.445 Gb/s 0.000000000692031 s/byte)
+Non-linear area (8192-16384) timer/2 = 0.005669 prev_timer = 0.007884 error= 0.390636
+Copying 32768 bytes from device(0)...to host -> bandwidth(32768) benchmarked successfully t = 0.016319 ms ( 2.008 Gb/s 0.000000000498020 s/byte)
+Non-linear area (16384-32768) timer/2 = 0.008160 prev_timer = 0.011338 error= 0.389564
+Copying 65536 bytes from device(0)...to host -> bandwidth(65536) benchmarked successfully t = 0.026117 ms ( 2.509 Gb/s 0.000000000398507 s/byte)
+Non-linear area (32768-65536) timer/2 = 0.013058 prev_timer = 0.016319 error= 0.249715
+Copying 131072 bytes from device(0)...to host -> bandwidth(131072) benchmarked successfully t = 0.045582 ms ( 2.876 Gb/s 0.000000000347763 s/byte)
+Non-linear area (65536-131072) timer/2 = 0.022791 prev_timer = 0.026117 error= 0.145917
+Copying 262144 bytes from device(0)...to host -> bandwidth(262144) benchmarked successfully t = 0.084802 ms ( 3.091 Gb/s 0.000000000323495 s/byte)
+
+Second bound area (131072-262144) timer/2 = 0.042401 prev_timer = 0.045582 error= 0.075019
+Copying 139264 bytes from device(0)...to host -> bandwidth(139264) benchmarked successfully t = 0.048125 ms ( 2.894 Gb/s 0.000000000345564 s/byte)
+Checking Non-Linear area bound: timer_normalized = 0.045294 prev_timer = 0.045582 error= 0.006362
+
+Non-Linear area bound found:  139264 timer_normalized = 0.045294 prev_timer = 0.045582 error= 0.006362
+
+Copying 524288 bytes from device(0)...to host -> bandwidth(524288) benchmarked successfully t = 0.163211 ms ( 3.212 Gb/s 0.000000000311301 s/byte)
+Non-linear area (262144-524288) timer/2 = 0.081606 prev_timer = 0.045582 error= 0.441437
+Copying 1048576 bytes from device(0)...to host -> bandwidth(1048576) benchmarked successfully t = 0.320526 ms ( 3.271 Gb/s 0.000000000305677 s/byte)
+Sub-Linear area (524288-1048576) timer/2 = 0.160263 prev_timer = 0.163211 error= 0.018399
+Copying 2097152 bytes from device(0)...to host -> bandwidth(2097152) benchmarked successfully t = 0.636569 ms ( 3.294 Gb/s 0.000000000303540 s/byte)
+Linear area (1048576-2097152) timer/2 = 0.318285 prev_timer = 0.320526 error= 0.007040
+Allocating 10000001 bytes to device(0)...Allocation(10000001) benchmarked successfully t = 1.275686 ms ( 7.839 Gb/s 0.000000000127569 s/byte)
+Allocating 10000001 bytes to device(0)...Allocation(10000001) benchmarked successfully t = 1.166355 ms ( 8.574 Gb/s 0.000000000116636 s/byte)
+Copying 10000001 bytes from device(0)...to device(0) -> bandwidth(10000001) benchmarked successfully t = 0.152368 ms ( 65.631 Gb/s 0.000000000015237 s/byte)
+Copying 128 bytes from device(0)...to device(0) -> bandwidth(128) benchmarked successfully t = 0.005053 ms ( 0.025 Gb/s 0.000000039479248 s/byte)
+Constant area (64-128) timer = 0.005053 prev_timer = 0.000000 error= 1.000000
+Copying 256 bytes from device(0)...to device(0) -> bandwidth(256) benchmarked successfully t = 0.005115 ms ( 0.050 Gb/s 0.000000019981624 s/byte)
+Constant area (128-256) timer = 0.005115 prev_timer = 0.005053 error= 0.012111
+Copying 512 bytes from device(0)...to device(0) -> bandwidth(512) benchmarked successfully t = 0.005022 ms ( 0.102 Gb/s 0.000000009808625 s/byte)
+Constant area (256-512) timer = 0.005022 prev_timer = 0.005115 error= 0.018574
+Copying 1024 bytes from device(0)...to device(0) -> bandwidth(1024) benchmarked successfully t = 0.005056 ms ( 0.203 Gb/s 0.000000004937781 s/byte)
+Constant area (512-1024) timer = 0.005056 prev_timer = 0.005022 error= 0.006778
+Copying 2048 bytes from device(0)...to device(0) -> bandwidth(2048) benchmarked successfully t = 0.005050 ms ( 0.406 Gb/s 0.000000002465578 s/byte)
+Constant area (1024-2048) timer = 0.005050 prev_timer = 0.005056 error= 0.001343
+Copying 4096 bytes from device(0)...to device(0) -> bandwidth(4096) benchmarked successfully t = 0.004979 ms ( 0.823 Gb/s 0.000000001215641 s/byte)
+Constant area (2048-4096) timer = 0.004979 prev_timer = 0.005050 error= 0.014106
+Copying 8192 bytes from device(0)...to device(0) -> bandwidth(8192) benchmarked successfully t = 0.004977 ms ( 1.646 Gb/s 0.000000000607500 s/byte)
+Constant area (4096-8192) timer = 0.004977 prev_timer = 0.004979 error= 0.000527
+Copying 16384 bytes from device(0)...to device(0) -> bandwidth(16384) benchmarked successfully t = 0.005000 ms ( 3.277 Gb/s 0.000000000305174 s/byte)
+Constant area (8192-16384) timer = 0.005000 prev_timer = 0.004977 error= 0.004666
+Copying 32768 bytes from device(0)...to device(0) -> bandwidth(32768) benchmarked successfully t = 0.004994 ms ( 6.561 Gb/s 0.000000000152420 s/byte)
+Constant area (16384-32768) timer = 0.004994 prev_timer = 0.005000 error= 0.001096
+Copying 65536 bytes from device(0)...to device(0) -> bandwidth(65536) benchmarked successfully t = 0.004937 ms ( 13.275 Gb/s 0.000000000075331 s/byte)
+Constant area (32768-65536) timer = 0.004937 prev_timer = 0.004994 error= 0.011667
+Copying 131072 bytes from device(0)...to device(0) -> bandwidth(131072) benchmarked successfully t = 0.005282 ms ( 24.816 Gb/s 0.000000000040297 s/byte)
+Constant area (65536-131072) timer = 0.005282 prev_timer = 0.004937 error= 0.065293
+Copying 262144 bytes from device(0)...to device(0) -> bandwidth(262144) benchmarked successfully t = 0.006183 ms ( 42.396 Gb/s 0.000000000023587 s/byte)
+
+First bound area (131072-262144) timer = 0.006183 prev_timer = 0.005282 error= 0.145793
+Copying 139264 bytes from device(0)...to device(0) -> bandwidth(139264) benchmarked successfully t = 0.005328 ms ( 26.139 Gb/s 0.000000000038257 s/byte)
+Copying 147456 bytes from device(0)...to device(0) -> bandwidth(147456) benchmarked successfully t = 0.005356 ms ( 27.532 Gb/s 0.000000000036321 s/byte)
+Constant area bound found:  147456 timer = 0.005356 prev_timer = 0.005282 error= 0.013814
+
+Copying 524288 bytes from device(0)...to device(0) -> bandwidth(524288) benchmarked successfully t = 0.008019 ms ( 65.384 Gb/s 0.000000000015294 s/byte)
+Non-linear area (262144-524288) timer/2 = 0.004009 prev_timer = 0.005282 error= 0.317379
+Copying 1048576 bytes from device(0)...to device(0) -> bandwidth(1048576) benchmarked successfully t = 0.010950 ms ( 95.757 Gb/s 0.000000000010443 s/byte)
+Non-linear area (524288-1048576) timer/2 = 0.005475 prev_timer = 0.008019 error= 0.464538
+Copying 2097152 bytes from device(0)...to device(0) -> bandwidth(2097152) benchmarked successfully t = 0.033520 ms ( 62.564 Gb/s 0.000000000015984 s/byte)
+Non-linear area (1048576-2097152) timer/2 = 0.016760 prev_timer = 0.010950 error= 0.346638
+Copying 4194304 bytes from device(0)...to device(0) -> bandwidth(4194304) benchmarked successfully t = 0.062886 ms ( 66.697 Gb/s 0.000000000014993 s/byte)
+
+Second bound area (2097152-4194304) timer/2 = 0.031443 prev_timer = 0.033520 error= 0.066060
+Copying 2228224 bytes from device(0)...to device(0) -> bandwidth(2228224) benchmarked successfully t = 0.035575 ms ( 62.635 Gb/s 0.000000000015966 s/byte)
+Checking Non-Linear area bound: timer_normalized = 0.033482 prev_timer = 0.033520 error= 0.001125
+
+Non-Linear area bound found:  2228224 timer_normalized = 0.033482 prev_timer = 0.033520 error= 0.001125
+
+Copying 8388608 bytes from device(0)...to device(0) -> bandwidth(8388608) benchmarked successfully t = 0.122281 ms ( 68.601 Gb/s 0.000000000014577 s/byte)
+Non-linear area (4194304-8388608) timer/2 = 0.061140 prev_timer = 0.033520 error= 0.451754

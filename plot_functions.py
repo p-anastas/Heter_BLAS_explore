@@ -7,16 +7,10 @@ import matplotlib.pyplot as plt
 from bandwidth_functions import *
 from general_functions import *
 from transpose_functions import *
-from dgemm_functions import t_dgemm_cpu, t_dgemm_gpu
+from dgemm_functions import *
 
 machine = 'dungani'
 resDir = 'Results_' + machine + '/'
-
-# For now use artificial bound to check
-bounds = [1e4,1e5,1e6,8e9]
-flop_bounds = [1e6,1e7,1e8,1e9,8e9]
-
-resDir, bw_file, _, _, _, _ = initialize()
 
 def report_bandwidth(bytes):
     cpu_to_gpu_time = t_copy_vec_1d(bytes, -1, 0,8)
@@ -114,46 +108,98 @@ def plot_bw(plot_up_bound):
 
 def plot_transpose(plot_up_bound):
     plot_down_bound = 0
-    xnew = np.linspace(plot_down_bound, plot_up_bound, num=50, endpoint=True)
-    ynew = np.linspace(plot_down_bound, plot_up_bound, num=50, endpoint=True)
     time = [0]
     flops= [0]
+    elems_X= [0]
+    elems_Y= [0]
     for line in trans_db:
         temp = line.split(',')
         if int(temp[0])*int(temp[1])< plot_up_bound:
            if not (int(temp[0])*int(temp[1]) in flops):
-                time.append(float(temp[2]))
-                flops.append(int(temp[0])*int(temp[1]))
-    flops, time = zip(*sorted(zip(flops, time)))
-    from mpl_toolkits import mplot3d
-    import matplotlib.pyplot as plt
-    fig = plt.figure()
-    ax = plt.axes(projection='3d')
-    X, Y = np.meshgrid(xnew, ynew)
-    ax.plot_wireframe(X,Y,list(map(lambda x,y: linearized1d_dtranspose(x*y), (X,Y))), color = 'c')
-    # plt.xscale('log')
-    plt.legend('CPU transpose', loc='best')
-    ax.set_xlabel('M')
-    ax.set_ylabel('N')
-    ax.set_zlabel('Time(s)')
-    ax.view_init(elev=20., azim=-35)
-    plt.title(resDir + 'Transpose_'+ machine +  '(0-' + str(plot_up_bound) + '/'+ str(plot_up_bound) + ' )')
-    plt.savefig(resDir +'Transpose_'+machine+'_3d' + str(plot_up_bound) + '.eps', format='eps')
+               time.append(float(temp[2]))
+               flops.append(int(temp[0])*int(temp[1]))
+               elems_X.append(int(temp[0]))
+               elems_Y.append(int(temp[1]))
+    flops, time_1d = zip(*sorted(zip(flops, time), key = lambda x: x[0]))
+    elems_X, elems_Y, time_2d = zip(*sorted(zip(elems_X, elems_Y, time), key = lambda x: x[0]))
+    print(elems_X, elems_Y, time_2d)
+    #print(flops, time_1d)
+    plt.plot(flops, time_1d, 'o', flops, list(map(lambda x: linearized1d_dtranspose(x),flops)) , '-' ,list(map(lambda x,y: x*y,elems_X, elems_Y)) , list(map(lambda x,y: linearized2d_dtranspose(x,y),elems_X, elems_Y)) , '+' , flops, list(map(lambda x: interpolated1d_dtranspose(x),flops)) , '-')
+    plt.legend(['Transpose Host (Samples)', 'Transpose Host (LR 1D)' , 'Transpose Host (LR 2D)' , 'Transpose Host (Interoplate 1d)'  ], loc='best')
+    plt.ylabel('Time(s)')
+    plt.xlabel('N*M')
+    plt.title('Transpose (0-' + str(plot_up_bound) + '/'+ str(plot_up_bound) + ' )')
+    plt.savefig(resDir + 'Transpose_'+machine+'_' + str(plot_up_bound) + '.eps', format='eps')
     plt.close()
-    #plt.plot(flops, GigaVal_per_s_l(flops,time), 'o', flops, GigaVal_per_s_l(flops,list(map(lambda x: t_dtranspose_lin(x),flops))) , '-' )
-    #plt.legend(['Transpose Host (Samples)', 'Transpose Host (LR total flops)' ], loc='best')
-    #plt.ylabel('Gflops/s')
-    #plt.xlabel('Size')
-    #plt.title('Transpose 1d-fied (0-' + str(plot_up_bound) + '/'+ str(plot_up_bound) + ' )')
-    #plt.savefig('Transpose_'+machine+'_1d' + str(plot_up_bound) + '.eps', format='eps')
-    #plt.close()
 
-#plot_bw(1e4)
-#plot_bw(1e5)
-#plot_bw(1e6)
+    plt.plot( flops, predict_error(time_1d, list(map(lambda x: linearized1d_dtranspose(x),flops))) , '-' ,list(map(lambda x,y: x*y,elems_X, elems_Y)) , predict_error(time_2d, list(map(lambda x,y: linearized2d_dtranspose(x,y),elems_X, elems_Y))) , '+' , flops, predict_error(time_1d, list(map(lambda x: interpolated1d_dtranspose(x),flops))) , '-')
+    plt.legend([ 'Transpose Host (LR 1D)' , 'Transpose Host (LR 2D)' , 'Transpose Host (Interoplate 1d)'  ], loc='best')
+    plt.ylabel('Error')
+    plt.xlabel('N*M')
+    plt.title('Error_Transpose (0-' + str(plot_up_bound) + '/'+ str(plot_up_bound) + ' )')
+    plt.savefig(resDir + 'Error_Transpose_'+machine+'_' + str(plot_up_bound) + '.eps', format='eps')
+    plt.close()
+
+def plot_gemm(loc, plot_up_bound):
+    if loc == -1:
+        file_db = cpu_gemm_db
+        timectr = 19
+        locname = 'CPU'
+        inter_3d_fun = interpolate3d_cpu_dgemm
+        lr_3d_fun = linearize3d_cpu_dgemm
+        lr_1d_fun = linearize1d_cpu_dgemm
+    elif loc == 0:
+        file_db = gpu_gemm_db
+        timectr = 18
+        locname = 'GPU'
+        inter_3d_fun = interpolate3d_gpu_dgemm
+        lr_3d_fun = linearize3d_gpu_dgemm
+        lr_1d_fun = linearize1d_gpu_dgemm
+    plot_down_bound = 0
+    time = [0]
+    flops= [0]
+    elems_X= [0]
+    elems_Y= [0]
+    elems_Z= [0]
+    for line in file_db:
+        temp = line.split(',')
+        if int(temp[0])*int(temp[1])*int(temp[2])< plot_up_bound:
+           if not (int(temp[0])*int(temp[1])*int(temp[2]) in flops):
+               time.append(float(temp[timectr]))
+               flops.append(int(temp[0])*int(temp[1])*int(temp[2]))
+               elems_X.append(int(temp[0]))
+               elems_Y.append(int(temp[1]))
+               elems_Z.append(int(temp[2]))
+    flops, time_1d = zip(*sorted(zip(flops, time), key = lambda x: x[0]))
+    elems_X, elems_Y, elems_Z, time_3d = zip(*sorted(zip(elems_X, elems_Y, elems_Z, time), key = lambda x: x[0]))
+    #print(elems_X, elems_Y, time_3d)
+    #print(flops, time_1d)
+    plt.plot(flops, time_1d, 'o', flops, list(map(lambda x: lr_1d_fun(x),flops)) , 'x' ,list(map(lambda x,y,z: x*y*z ,elems_X, elems_Y, elems_Z)) , list(map(lambda x,y,z: lr_3d_fun(x,y,z),elems_X, elems_Y, elems_Z)) , '+' , list(map(lambda x,y,z: x*y*z ,elems_X, elems_Y, elems_Z)), list(map(lambda x,y,z: inter_3d_fun(x,y,z),elems_X, elems_Y, elems_Z)) , 'v')
+    plt.legend(['Dgemm ' + locname + ' (Samples)', 'Dgemm ' + locname + ' (LR 1D)' , 'Dgemm ' + locname + ' (LR 3D)' , 'Dgemm ' + locname + ' (Interoplate 3d)'  ], loc='best')
+    plt.ylabel('Time(s)')
+    plt.xlabel('N*M*K')
+    plt.title('Dgemm ' + locname +' (0-' + str(plot_up_bound) + '/'+ str(plot_up_bound) + ' )')
+    plt.savefig(resDir + 'Dgemm ' + locname +'_'+machine+'_' + str(plot_up_bound) + '.eps', format='eps')
+    plt.close()
+
+    plt.plot( flops, predict_error(time_1d, list(map(lambda x: lr_1d_fun(x),flops))) , 'x' ,list(map(lambda x,y,z: x*y*z ,elems_X, elems_Y, elems_Z)) ,  predict_error(time_3d, list(map(lambda x,y,z: lr_3d_fun(x,y,z),elems_X, elems_Y, elems_Z))) , '+' , list(map(lambda x,y,z: x*y*z ,elems_X, elems_Y, elems_Z)),  predict_error(time_3d, list(map(lambda x,y,z: inter_3d_fun(x,y,z),elems_X, elems_Y, elems_Z))) , 'v')
+    plt.legend(['Dgemm ' + locname + ' (LR 1D)' , 'Dgemm ' + locname + ' (LR 3D)' , 'Dgemm ' + locname + ' (Interoplate 3d)'  ], loc='best')
+    plt.ylabel('Error')
+    plt.xlabel('N*M*K')
+    plt.title('Error_Dgemm ' + locname +' (0-' + str(plot_up_bound) + '/'+ str(plot_up_bound) + ' )')
+    plt.savefig(resDir + 'Error_Dgemm ' + locname + '_'+machine+'_' + str(plot_up_bound) + '.eps', format='eps')
+    plt.close()
+
+plot_bw(1e4)
+plot_bw(1e5)
+plot_bw(1e6)
 #plot_transpose(1e5)
-plot_transpose(1e6)
-plot_transpose(1e7)
+#plot_transpose(1e6)
+#plot_transpose(1e7)
+#plot_transpose(1e8)
+#plot_gemm(0, 1e7)
+#plot_gemm(0, 1e8)
+#plot_gemm(0, 1e9)
 
 
 

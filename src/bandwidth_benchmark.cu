@@ -8,13 +8,16 @@
 #include <mkl.h>
 #include "cublas_v2.h"
 
+#include "benchmark_functions.hpp"
 #include "cpu_utils.hpp"
 #include "gpu_utils.hpp"
 
-int main(const int argc, const char *argv[]) {
-  double alpha, *src, *dest;
 
-  size_t N_bytes, from, to, itterations = 100;
+int main(const int argc, const char *argv[]) {
+  void *src = NULL, *dest = NULL;
+  double timer, prev_timer, Gbytes;
+  
+  size_t i, N_bytes, from, to, itterations = 1000, convergence = 0, area_bounds[3] = {0,0,0}, bound_step = 10;
 
   switch (argc) {
     case (4):
@@ -26,55 +29,65 @@ int main(const int argc, const char *argv[]) {
       error("Incorrect input arguments");
   }
 
-  gpu_timer_p cuda_timer = gpu_timer_init();
-  double total_t = 0;
+timer = Dvec_init(&src, N_bytes, from, 10);
+timer = Dvec_init(&dest, N_bytes, to, 10);
+timer = check_bandwidth(N_bytes, dest, to, src, from, 10);
+i = 128;
+timer = 0;
+prev_timer = 0;
+while (!convergence && i <= N_bytes)
+{
+  timer = check_bandwidth(i, dest, to, src, from, itterations);
+  Gbytes = i / (timer * 1e9);
 
-  int count = 666;
-  cudaGetDeviceCount(&count);
+if( Derror(timer,prev_timer) < 0.1 || i== 128) {
+fprintf(stderr, "Constant area (%d-%d) timer = %lf prev_timer = %lf error= %lf\n", i/2,i, timer, prev_timer, Derror(timer,prev_timer));
+prev_timer = timer;
+}
+else if(!area_bounds[0]){
+fprintf(stderr, "\nFirst bound area (%d-%d) timer = %lf prev_timer = %lf error= %lf\n", i/2,i, timer, prev_timer, Derror(timer,prev_timer));
+	timer = prev_timer;
+	int ctr = i/2;
+	while ( ctr < i && Derror(timer,prev_timer) < 0.01) {
+		ctr = ctr + (i-i/2)/16;
+		timer = check_bandwidth(ctr, dest, to, src, from, itterations);
+	}
+	area_bounds[0] = ctr;
+        fprintf(stderr, "Constant area bound found:  %d timer = %lf prev_timer = %lf error= %lf\n\n", area_bounds[0],timer, prev_timer, Derror(timer,prev_timer));
+        fprintf(stdout, "%d,%d,%d,%.15lf,bound_0\n", ctr, from, to, timer / itterations);
+}
 
-  if (-1 == from) {
-    fprintf(stderr, "Copying %d bytes from host...", N_bytes);
-    src = Dvec_init_pinned(N_bytes, 42);
-  } else if (from >= count || from < 0)
-    error("Invalid source device");
-  else {
-    fprintf(stderr, "Copying %d bytes from device(%d)...", N_bytes, from);
-    cudaSetDevice(from);
-    cudaMalloc(&src, N_bytes);
-  }
+else if (Derror(timer/2,prev_timer) > 0.1) {
+fprintf(stderr, "Non-linear area (%d-%d) timer/2 = %lf prev_timer = %lf error= %lf\n", i/2,i, timer/2, prev_timer, Derror(timer/2,prev_timer));
+prev_timer = timer;
+}
+else if(!area_bounds[1]) {
+fprintf(stderr, "\nSecond bound area (%d-%d) timer/2 = %lf prev_timer = %lf error= %lf\n", i/2,i, timer/2, prev_timer, Derror(timer/2,prev_timer));
+	timer = prev_timer;
+        double temp_prev_timer = prev_timer;
+	int ctr = i/2;
+	while ( ctr < i && Derror(timer*(ctr - (i-i/2)/16)/ctr,temp_prev_timer) > 0.01) {
+		ctr = ctr + (i-i/2)/16;
+                temp_prev_timer = timer;
+		timer = check_bandwidth(ctr, dest, to, src, from, itterations);
+                fprintf(stderr, "Checking Non-Linear area bound: timer_normalized = %lf prev_timer = %lf error= %lf\n\n", timer*(ctr - (i-i/2)/16)/ctr, temp_prev_timer, Derror(timer*(ctr - (i-i/2)/16)/ctr,temp_prev_timer));
+	}
+	area_bounds[1] = ctr;
+        fprintf(stderr, "Non-Linear area bound found:  %d timer_normalized = %lf prev_timer = %lf error= %lf\n\n", area_bounds[1],timer*(ctr - (i-i/2)/16)/ctr, temp_prev_timer, Derror(timer*(i/2)/ctr,temp_prev_timer));
+        fprintf(stdout, "%d,%d,%d,%.15lf,bound_1\n", ctr, from, to, timer / itterations);
+}
+else if (Derror(timer/2,prev_timer) > 0.01){
+fprintf(stderr, "Sub-Linear area (%d-%d) timer/2 = %lf prev_timer = %lf error= %lf\n", i/2,i, timer/2, prev_timer, Derror(timer/2,prev_timer));
+prev_timer = timer;
+}
+else{
+	area_bounds[2] = i/2;
+fprintf(stderr, "Linear area (%d-%d) timer/2 = %lf prev_timer = %lf error= %lf\n", i/2,i, timer/2, prev_timer, Derror(timer/2,prev_timer));
+        fprintf(stdout, "%d,%d,%d,%.15lf,bound_2\n", i/2, from, to, prev_timer / itterations);
+  convergence = 1;
+}
+    i=i*2; 
 
-  if (-1 == to) {
-    fprintf(stderr, "to host\n", N_bytes);
-    dest = Dvec_init_pinned(N_bytes, 0);
-  } else if (to >= count || to < 0)
-    error("Invalid destination device");
-  else {
-    fprintf(stderr, "to device(%d)\n", to);
-    cudaSetDevice(to);
-    cudaMalloc(&dest, N_bytes);
-  }
-
-  gpu_timer_start(cuda_timer);
-  if (-2 == from + to)
-    for (int it = 0; it < itterations; it++) memcpy(dest, src, N_bytes);
-  if (-1 == from)
-    for (int it = 0; it < itterations; it++)
-      cudaMemcpy(dest, src, N_bytes, cudaMemcpyHostToDevice);
-  if (-1 == to)
-    for (int it = 0; it < itterations; it++)
-      cudaMemcpy(dest, src, N_bytes, cudaMemcpyDeviceToHost);
-  else
-    for (int it = 0; it < itterations; it++)
-      cudaMemcpy(dest, src, N_bytes, cudaMemcpyDeviceToDevice);
-  gpu_timer_stop(cuda_timer);
-  total_t = gpu_timer_get(cuda_timer) / 1000;
-  fprintf(stderr,
-          "bandwidth(%d) benchmarked sucsessfully t = %lf ms ( %.3lf Gb/s "
-          "%.15lf s/byte)\n",
-          N_bytes, total_t * 1000 / itterations,
-          1e-9 / (total_t / N_bytes / itterations),
-          total_t / N_bytes / itterations);
-  fprintf(stdout, "%d,%d,%d,%.15lf\n", N_bytes, from, to,
-          total_t / itterations);
+}
   return 0;
 }

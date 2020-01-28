@@ -72,3 +72,4 @@ Copying 280 bytes from host...to host
 bandwidth(280) benchmarked sucsessfully t = 0.007924 ms ( 0.035 Gb/s 0.000000028299430 s/byte)
 Copying 290 bytes from host...to host
 bandwidth(290) benchmarked sucsessfully t = 0.007893 ms ( 0.037 Gb/s 0.000000027216551 s/byte)
+Allocating 1000000000 bytes to host...
